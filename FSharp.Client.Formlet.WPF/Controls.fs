@@ -16,14 +16,14 @@
 
 namespace FSharp.Client.Formlet.WPF
 
-open FSharp.Client.Formlet.Core
-
 open System
 open System.Collections
 open System.Collections.ObjectModel
 open System.Windows
 open System.Windows.Controls
 open System.Windows.Threading
+
+open FSharp.Client.Formlet.Core
 
 module Controls =
 
@@ -38,8 +38,8 @@ module Controls =
         static let resetEvent       = CreateRoutedEvent<FormletElement> "Reset"
 
         static member RebuildEvent  = rebuildEvent
-        static member SubmitEvent   = submitEvent 
-        static member ResetEvent    = resetEvent  
+        static member SubmitEvent   = submitEvent
+        static member ResetEvent    = resetEvent
 
         static member RaiseRebuild (sender : UIElement) = RaiseRoutedEvent FormletElement.RebuildEvent  sender
         static member RaiseSubmit  (sender : UIElement) = RaiseRoutedEvent FormletElement.SubmitEvent   sender
@@ -63,7 +63,7 @@ module Controls =
 
         override this.VisualChildrenCount = this.Children.Length
 
-        override this.GetVisualChild (i : int) = upcast this.Children.[i] 
+        override this.GetVisualChild (i : int) = upcast this.Children.[i]
 
         member this.RemoveChild (fe : UIElement) =
                 this.RemoveVisualChild (fe)
@@ -81,43 +81,43 @@ module Controls =
 
         let mutable value : UIElement = null
 
-        override this.Children 
+        override this.Children
             with    get ()   = if value <> null then [|value|] else [||]
 
-        member this.Value 
+        member this.Value
             with    get ()                      = value
-            and     set (fe : UIElement)  = 
-                if not (Object.ReferenceEquals (value,fe)) then    
+            and     set (fe : UIElement)  =
+                if not (Object.ReferenceEquals (value,fe)) then
                     this.RemoveChild (value)
                     value <- fe
                     this.AddChild (value)
                     this.InvalidateMeasure ()
 
         override this.MeasureOverride (sz : Size) =
-            ignore <| base.MeasureOverride sz        
+            ignore <| base.MeasureOverride sz
             let v = value
-            if v <> null 
+            if v <> null
                 then    v.Measure (sz)
                         v.DesiredSize
                 else    EmptySize
 
         override this.ArrangeOverride (sz : Size) =
-            ignore <| base.ArrangeOverride sz        
+            ignore <| base.ArrangeOverride sz
             let v = value
-            if v <> null 
+            if v <> null
                 then    v.Arrange (Rect (sz))
             sz
 
     type BinaryElement () =
         inherit FormletElement ()
 
-        let mutable left                : UIElement  = null
-        let mutable right               : UIElement  = null
-        let mutable orientation         : FormOrientation   = TopToBottom
-        let mutable stretch             : FormStretch       = NoStretch
+        let mutable left                : UIElement         = null
+        let mutable right               : UIElement         = null
+        let mutable orientation         : FormletOrientation= TopToBottom
+        let mutable stretch             : FormletStretch    = NoStretch
 
-        override this.Children 
-            with    get ()   = 
+        override this.Children
+            with    get ()   =
                 match left, right with
                     |   null, null  -> [||]
                     |   l,null      -> [|l|]
@@ -125,7 +125,7 @@ module Controls =
                     |   l,r         -> [|l;r;|]
 
 
-        member this.Orientation                 
+        member this.Orientation
             with get ()                         =   orientation
             and  set (value)                    =   orientation <- value
                                                     this.InvalidateMeasure ()
@@ -135,19 +135,19 @@ module Controls =
             and  set (value)                    =   stretch <- value
                                                     this.InvalidateArrange ()
 
-        member this.Left 
+        member this.Left
             with    get ()                      = left
-            and     set (fe : UIElement) = 
-                if not (Object.ReferenceEquals (left,fe)) then    
+            and     set (fe : UIElement) =
+                if not (Object.ReferenceEquals (left,fe)) then
                     this.RemoveChild (left)
                     left <- fe
                     this.AddChild (left)
                     this.InvalidateMeasure ()
 
-        member this.Right 
+        member this.Right
             with    get ()                      = right
-            and     set (fe : UIElement)  = 
-                if not (Object.ReferenceEquals (right,fe)) then    
+            and     set (fe : UIElement)  =
+                if not (Object.ReferenceEquals (right,fe)) then
                     this.RemoveChild (right)
                     right <- fe
                     this.AddChild (right)
@@ -160,9 +160,9 @@ module Controls =
         override this.GetVisualChild (i : int) = upcast this.Children.[i]
 
         override this.MeasureOverride (sz : Size) =
-            ignore <| base.MeasureOverride sz        
+            ignore <| base.MeasureOverride sz
             let c = this.Children
-            match c with 
+            match c with
                 |   [||]    ->  EmptySize
                 |   [|v|]   ->  v.Measure (sz)
                                 v.DesiredSize
@@ -174,9 +174,9 @@ module Controls =
                 |   _       ->  HardFail_InvalidCase ()
 
         override this.ArrangeOverride (sz : Size) =
-            ignore <| base.ArrangeOverride sz        
+            ignore <| base.ArrangeOverride sz
             let c = this.Children
-            match c with 
+            match c with
                 |   [||]    ->  ()
                 |   [|v|]   ->  let r = TranslateUsingOrientation orientation false sz EmptyRect v.DesiredSize
                                 ignore <| v.Arrange (r)
@@ -187,7 +187,7 @@ module Controls =
                                 r.Arrange (rr)
                                 ignore <| r.Arrange (rr)
                 |   _       ->  HardFail_InvalidCase ()
-            
+
             sz
 
     type LabelElement (labelWidth : double) as this =
@@ -212,7 +212,7 @@ module Controls =
             this.Text   <- initialText
             this.Margin <- DefaultMargin
 
-        override this.OnLostFocus(e) = 
+        override this.OnLostFocus(e) =
             base.OnLostFocus(e)
             FormletElement.RaiseRebuild this
 
@@ -269,10 +269,10 @@ module Controls =
             with get ()                     = label.Text
             and  set (value)                = label.Text <- value
 
-    type FormContext () =
+    type FormletContext () =
         let x = 3
 
-    type FormletControl<'TValue> (submit : 'TValue -> unit, formlet : Formlet<FormContext, UIElement, 'TValue>) as this =
+    type FormletControl<'TValue> (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) as this =
         inherit UnaryElement ()
 
         let mutable isDispatching                       = false
@@ -298,9 +298,9 @@ module Controls =
                         isDispatching <- false
                     )
 
-        let layout = FormLayout.New TopToBottom Maximize Maximize
-        
-        let setElement (collection : IList) (position : int) element : unit = 
+        let layout = FormletLayout.New TopToBottom Maximize Maximize
+
+        let setElement (collection : IList) (position : int) (element : UIElement) : unit =
             if position < collection.Count then
                 collection.[position] <- element
             else if position = collection.Count then
@@ -308,40 +308,41 @@ module Controls =
             else
                 HardFail_InvalidCase ()
 
-        let rec buildTree (collection : IList) (position : int) (fl : FormLayout) (ft : FormTree<'Element>) : int = 
-            let current = 
-                if position < collection.Count then 
-                    match collection.[position] with
-                    | :? UIElement as e -> e
-                    | _                 -> null
-                else null
+        let getElement (collection : IList) (position : int) : UIElement =
+            if position < collection.Count then
+                match collection.[position] with
+                | :? UIElement as e -> e
+                | _                 -> null
+            else null
+        let rec buildTree (collection : IList) (position : int) (fl : FormletLayout) (ft : FormletTree<UIElement>) : int =
+            let current = getElement collection position
 
             match ft with
-            | Empty                 -> 
+            | Empty                 ->
                 0
-            | Singleton e           -> 
+            | Singleton e           ->
                 setElement collection position e
                 1
-            | Container (e, ls, fts) -> 
+            | Container (e, ls, fts) ->
                 fts |> List.iteri (fun i v -> ignore <| buildTree collection i fl v)
                 setElement collection position e
                 1
-            | Layout (l, ft)        -> 
+            | Layout (l, ft)        ->
                 let nl = fl.Union l
                 if nl = fl then
                     buildTree collection position fl ft
                 else
                     let sp = CreateElement current CreateVerticalStackPanel
-                    sp.Orientation <- 
+                    sp.Orientation <-
                         match fl.Orientation with
-                        | FormOrientation.Parent        
-                        | FormOrientation.TopToBottom   -> Orientation.Vertical
-                        | FormOrientation.LeftToRight   -> Orientation.Horizontal
+                        | FormletOrientation.Parent
+                        | FormletOrientation.TopToBottom   -> Orientation.Vertical
+                        | FormletOrientation.LeftToRight   -> Orientation.Horizontal
 
                     ignore <| buildTree sp.Children 0 fl ft
                     setElement collection position sp
                     1
-            | Label (lbl, ft)       -> 
+            | Label (lbl, ft)       ->
                 let label = CreateElement current (fun () -> LabelElement (100.))
                 label.Text  <- lbl
                 // label.Right <- null // TODO:
@@ -350,11 +351,20 @@ module Controls =
                 label.Right <- sp
                 setElement collection position label
                 1
-            | Fork (l,r)            -> 
+            | Fork (l,r)            ->
                 let lcount = buildTree collection position fl l
                 let rcount = buildTree collection (position + lcount) fl r
                 lcount + rcount
-        
+            | Apply (apply, ft)     ->
+                let c       = buildTree collection position fl ft
+                let element = getElement collection position
+                apply element
+                c   // TODO: Should map be applied to last, first or all^?
+            | Group (_, ft)         ->
+                buildTree collection position fl ft
+            | Tag (_, ft)           ->
+                buildTree collection position fl ft
+
 
         member this.OnRebuild   (sender : obj) (e : RoutedEventArgs) = dispatchOnce this.BuildForm
         member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = dispatchOnce this.SubmitForm
@@ -363,26 +373,26 @@ module Controls =
         override this.OnStartUp () =
             this.BuildForm ()
 
-        member this.ResetForm () = 
+        member this.ResetForm () =
             scrollViewer.Content <- null
             this.BuildForm ()
 
-        member this.Evaluate () = 
-            let formContext = FormContext ()
-            let c,ft = formlet.Evaluate (formContext, formTree)
+        member this.Evaluate () =
+            let context = FormletContext ()
+            let c,ft = formlet.Evaluate (context, formTree)
             formTree <- ft
             c,ft
 
-        member this.SubmitForm () = 
+        member this.SubmitForm () =
             let c,_ = this.Evaluate ()
 
-            match c.Failures.Length with   
+            match c.Failures.Length with
             |   0   -> submit c.Value
             |   _   -> ()
 
-        member this.BuildForm () = 
+        member this.BuildForm () =
             let _,ft= this.Evaluate ()
-            let cft = FormTree.Layout (layout, ft)
+            let cft = FormletTree.Layout (layout, ft)
             let sp  = CreateElement scrollViewer.Content CreateVerticalStackPanel
 
             // TODO: Defer updates

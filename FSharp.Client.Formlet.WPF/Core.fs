@@ -16,37 +16,62 @@
 
 namespace FSharp.Client.Formlet.WPF
 
-open FSharp.Client.Formlet.Core
-
+open System
 open System.Windows
 open System.Windows.Controls
 
+open FSharp.Client.Formlet.Core
+
 open Controls
 
-module Input = 
+module Input =
 
-    let Text initialText : Formlet<FormContext, UIElement, string> = 
-        let eval (fc,ft : FormTree<UIElement>) = 
+    let Text initialText : Formlet<FormletContext, UIElement, string> =
+        let eval (fc,ft : FormletTree<UIElement>) =
             match ft with
-            | Singleton (:? InputTextElement as e)  -> (Formlet.Success e.Text)     , ft
-            | _                                     -> (Formlet.Success initialText), Singleton (upcast new InputTextElement(initialText))
+            | Singleton (:? InputTextElement as e)  -> (FormletCollect.Success e.Text)     , ft
+            | _                                     -> (FormletCollect.Success initialText), Singleton (upcast new InputTextElement(initialText))
 
-        Formlet.New eval 
+        Formlet.New eval
 
-module Enhance = 
+    let Integer v =
+        let map (collect : FormletCollect<string>) : FormletCollect<int> =
+            if collect.Failures.Length > 0 then
+                FormletCollect.New 0 collect.Failures
+            else
+                let mutable i = 0
+                if Int32.TryParse (collect.Value, &i) then
+                    FormletCollect.Success i
+                else
+                    FormletCollect<_>.FailWith "Input is not an integer"
+        Text (v.ToString())
+        |> Formlet.MapResult map
 
-    let x = 3
+module Enhance =
+
 (*
-    let Many (initialCount : int) (f : Formlet<UIElement, 'T>) : Formlet<UIElement, 'T list> =  
-        let eval (fc,ft : FormTree<UIElement>) = 
+    let Many (initialCount : int) (f : Formlet<UIElement, 'T>) : Formlet<UIElement, 'T list> =
+        let eval (fc,ft : FormTree<UIElement>) =
             match ft with
-            | Container ((:? ListBox as lb), fts : FormTree<UIElement> list) -> 
-                let ifts = 
+            | Container ((:? ListBox as lb), fts : FormTree<UIElement> list) ->
+                let ifts =
                 (Formlet.Success []) , ft
-            | _                         -> 
+            | _                         ->
                 (Formlet.Success []) , Visual (upcast new ListBox ())
 
-        Formlet.New eval 
-        
+        Formlet.New eval
+
 *)
 
+
+    let WithErrorVisual (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
+        let eval (fc,ft : FormletTree<UIElement>) =
+            let ift =
+                match ft with
+                | Apply (_,ft)  -> ft
+                | _             -> Empty
+            let c,nift  = f.Evaluate (fc, ift)
+            let apply   = if c.Failures.IsEmpty then RemoveErrorAdorner else AppendErrorAdorner
+            c, Apply (apply, nift)
+
+        Formlet.New eval

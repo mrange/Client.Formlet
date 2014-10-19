@@ -16,80 +16,81 @@
 
 namespace FSharp.Client.Formlet.WPF
 
-open FSharp.Client.Formlet.Core
-
 open System
 open System.Threading
 open System.Windows
 open System.Windows.Controls
+open System.Windows.Documents
 open System.Windows.Input
 open System.Windows.Media
 open System.Windows.Threading
+
+open FSharp.Client.Formlet.Core
 
 [<AutoOpen>]
 module internal Functions =
 
     let Enumerator (e : array<'T>) = e.GetEnumerator ()
 
-    let CreateRoutedEvent<'TOwner> name = 
+    let CreateRoutedEvent<'TOwner> name =
         EventManager.RegisterRoutedEvent (name + "Event", RoutingStrategy.Bubble, typeof<RoutedEventHandler>, typeof<'TOwner>)
 
-    let RaiseRoutedEvent routedEvent (sender : UIElement) = 
+    let RaiseRoutedEvent routedEvent (sender : UIElement) =
         let args = new RoutedEventArgs (routedEvent, sender)
         sender.RaiseEvent args
 
-    let AddRoutedEventHandler routedEvent (receiver : UIElement) (h : obj -> RoutedEventArgs -> unit) = 
+    let AddRoutedEventHandler routedEvent (receiver : UIElement) (h : obj -> RoutedEventArgs -> unit) =
         receiver.AddHandler (routedEvent, RoutedEventHandler h)
 
-    let ActionAsDelegate (action : unit -> unit) = 
-        let a = Action action 
+    let ActionAsDelegate (action : unit -> unit) =
+        let a = Action action
         let d : Delegate = upcast a
         d
 
-    let Dispatch (dispatcher : Dispatcher) (action : unit -> unit) = 
+    let Dispatch (dispatcher : Dispatcher) (action : unit -> unit) =
         let d = ActionAsDelegate action
         ignore <| dispatcher.BeginInvoke (DispatcherPriority.ApplicationIdle, d)
 
     let HardFail msg            = failwith msg
     let HardFail_InvalidCase () = HardFail "FSharp.Client.Formlet.WPF.ProgrammingError: This case shouldn't be reached"
 
-    let Fail<'T> (msg : string) = FormCollect.New Unchecked.defaultof<'T> [{FailureContext = []; Message = msg;}]
+    let Fail<'T> (msg : string) = FormletCollect.New Unchecked.defaultof<'T> [{FailureContext = []; Message = msg;}]
     let Fail_NeverBuiltUp ()    = Fail "FSharp.Client.Formlet.WPF.ProgrammingError: Never built up"
 
     let EmptySize = new Size ()
     let EmptyRect = new Rect ()
 
-    let TranslateUsingOrientation orientation (fill : bool) (sz : Size) (l : Rect) (r : Size) = 
-        match fill,orientation with 
+    let TranslateUsingOrientation orientation (fill : bool) (sz : Size) (l : Rect) (r : Size) =
+        match fill,orientation with
         |   false, TopToBottom  -> Rect (0.0        , l.Bottom  , sz.Width                      , r.Height                      )
         |   false, LeftToRight  -> Rect (l.Right    , 0.0       , r.Width                       , sz.Height                     )
         |   true , TopToBottom  -> Rect (0.0        , l.Bottom  , sz.Width                      , max (sz.Height - l.Bottom) 0.0)
         |   true , LeftToRight  -> Rect (l.Right    , 0.0       , max (sz.Width - l.Right) 0.0  , sz.Height                     )
 
-    let ExceptVertically (l : Size) (r : Size) = 
+    let ExceptVertically (l : Size) (r : Size) =
         Size (max l.Width r.Width, max (l.Height - r.Height) 0.0)
 
-    let ExceptHorizontally (l : Size) (r : Size) = 
+    let ExceptHorizontally (l : Size) (r : Size) =
         Size (max (l.Width - r.Width) 0.0, max l.Height r.Height)
 
-    let ExceptUsingOrientation (o : FormOrientation) (l : Size) (r : Size) =
+    let ExceptUsingOrientation (o : FormletOrientation) (l : Size) (r : Size) =
         match o with
         |   TopToBottom -> ExceptVertically    l r
         |   LeftToRight -> ExceptHorizontally  l r
 
-    let Intersect (l : Size) (r : Size) = 
+    let Intersect (l : Size) (r : Size) =
         Size (min l.Width r.Width, min l.Height r.Height)
 
-    let Union (l : Size) (r : Size) = 
+    let Union (l : Size) (r : Size) =
         Size (max l.Width r.Width, max l.Height r.Height)
 
-    let UnionVertically (l : Size) (r : Size) = 
+    let UnionVertically (l : Size) (r : Size) =
         Size (max l.Width r.Width, l.Height + r.Height)
 
-    let UnionHorizontally (l : Size) (r : Size) = 
+    let UnionHorizontally (l : Size) (r : Size) =
         Size (l.Width + r.Width, max l.Height r.Height)
 
-    let UnionUsingOrientation (o : FormOrientation) (l : Size) (r : Size) =
+    let UnionUsingOrientation (o : FormletOrientation) (l : Size) (r : Size) =
         match o with
         |   TopToBottom -> UnionVertically    l r
         |   LeftToRight -> UnionHorizontally  l r
@@ -117,11 +118,11 @@ module internal Functions =
     let DefaultCulture              = Thread.CurrentThread.CurrentUICulture
 
     let inline CreateElement<'Element when 'Element :> UIElement> (e : obj) (creator : unit -> 'Element)=
-        match e with 
+        match e with
         | :? 'Element as e  -> e
         | _                 -> creator ()
 
-    let FormatText text typeFace fontSize foreGround = 
+    let FormatText text typeFace fontSize foreGround =
         let ft = FormattedText (text                                    ,
                                 DefaultCulture                          ,
                                 FlowDirection.LeftToRight               ,
@@ -131,17 +132,59 @@ module internal Functions =
                                 )
         ft
 
-    let CreateBrush color = 
+    let CreateBrush color =
         let br = new SolidColorBrush (color)
         br.Freeze ()
         br
 
-    let CreatePen br th = 
+    let CreatePen br th =
         let p = new Pen (br, th)
         p.Freeze ()
         p
 
-    type Command(canExecute : unit -> bool, execute : unit -> unit) = 
+    type ErrorVisualAdorner(adornedElement) as this =
+        inherit Adorner(adornedElement)
+
+        static let pen = CreatePen DefaultErrorBrush 2.0
+
+        do
+            this.IsHitTestVisible <- true
+
+        override this.OnRender (drawingContext) =
+            let rect = Rect (this.AdornedElement.RenderSize)
+            drawingContext.DrawRectangle (null, pen, rect)
+
+    let GetErrorAdorner (layer : AdornerLayer) (e : UIElement) : Adorner option =
+        if layer <> null then
+            let adorners = layer.GetAdorners e
+            if adorners <> null then
+                let findAdorner (adorner : Adorner) =
+                    match adorner with
+                    | :? ErrorVisualAdorner -> true
+                    | _                     -> false
+                adorners |> Array.tryFind findAdorner
+            else
+                None
+        else
+            None
+
+    let AppendErrorAdorner (e : UIElement) : unit =
+        let layer = AdornerLayer.GetAdornerLayer e
+        let errorAdorner = GetErrorAdorner layer e
+
+        match errorAdorner with
+        | Some a    -> ()
+        | _         -> layer.Add (new ErrorVisualAdorner (e))
+
+    let RemoveErrorAdorner (e : UIElement) : unit =
+        let layer = AdornerLayer.GetAdornerLayer e
+        let errorAdorner = GetErrorAdorner layer e
+
+        match errorAdorner with
+        | Some a    -> layer.Remove (a)
+        | _         -> ()
+
+    type Command(canExecute : unit -> bool, execute : unit -> unit) =
         let canExecuteChanged           = new Event<EventHandler, EventArgs> ()
 
         interface ICommand with
@@ -158,7 +201,7 @@ module internal Functions =
         static let pen      = CreatePen DefaultBorderBrush 1.0
         static let typeFace = DefaultTypeFace
 
-        static let transform = 
+        static let transform =
             let transform = Matrix.Identity
             transform.Rotate 90.0
             transform.Translate (DefaultListBoxItemPadding.Left + 5.0, 4.0)
@@ -167,7 +210,7 @@ module internal Functions =
         let mutable formattedText = Unchecked.defaultof<FormattedText>
         let mutable lastIndex = -1
 
-        do 
+        do
             this.HorizontalContentAlignment <- HorizontalAlignment.Stretch
             this.Padding <- DefaultListBoxItemPadding
 
@@ -182,9 +225,9 @@ module internal Functions =
             if index <> lastIndex || formattedText = null then
                 let text  = (index + 1).ToString("000", DefaultCulture)
                 formattedText <- FormatText
-                    text    
-                    typeFace                                
-                    24.0                                    
+                    text
+                    typeFace
+                    24.0
                     DefaultBackgroundBrush
                 lastIndex <- index
 
@@ -204,7 +247,7 @@ module internal Functions =
 
             drawingContext.Pop ()
 
-    type FormListBox () as this = 
+    type FormListBox () as this =
         inherit ListBox ()
 
         do
@@ -213,7 +256,7 @@ module internal Functions =
         override this.GetContainerForItemOverride () =
             new FormListBoxItem () :> DependencyObject
 
-    let CreateListBox () = 
+    let CreateListBox () =
         let listBox             = new FormListBox() :> ListBox
         listBox.Margin          <- DefaultMargin
         listBox.SelectionMode   <- SelectionMode.Extended
@@ -231,7 +274,7 @@ module internal Functions =
     let CreateVerticalStackPanel () =
         CreateStackPanel Orientation.Vertical
 
-    let CreateButton t toolTip canExecute execute = 
+    let CreateButton t toolTip canExecute execute =
         let button      = new Button()
         button.ToolTip  <- toolTip
         button.Content  <- t
@@ -245,20 +288,20 @@ module internal Functions =
         button.Loaded.AddHandler !handler
         button
 
-    let CreateTextBlock t = 
+    let CreateTextBlock t =
         let textBlock   = new TextBlock ()
         textBlock.Text  <- t
         textBlock.Margin<- DefaultMargin
         textBlock
 
 
-    let CreateTextBox t = 
+    let CreateTextBox t =
         let textBox     = new TextBox ()
         textBox.Text    <- t
         textBox.Margin  <- DefaultMargin
         textBox
 
-    let CreateLabelTextBox t = 
+    let CreateLabelTextBox t =
         let label                   = CreateTextBox t
         label.IsReadOnly            <- true
         label.IsTabStop             <- false
@@ -268,7 +311,7 @@ module internal Functions =
         label.HorizontalAlignment   <- HorizontalAlignment.Left
         label
 
-    let CreateManyElements canExecuteNew executeNew canExecuteDelete executeDelete : ListBox*Panel*Button*Button = 
+    let CreateManyElements canExecuteNew executeNew canExecuteDelete executeDelete : ListBox*Panel*Button*Button =
         let buttons         = CreateStackPanel Orientation.Horizontal
         let newButton       = CreateButton "_New" "Click to create another item" canExecuteNew executeNew
         let deleteButton    = CreateButton "_Delete" "Click to delete the currently selected items" canExecuteDelete executeDelete
@@ -277,7 +320,7 @@ module internal Functions =
         let listBox         = CreateListBox ()
         listBox, buttons :> Panel, newButton, deleteButton
 
-    let CreateLegendElements t : UIElement*TextBox*Decorator = 
+    let CreateLegendElements t : UIElement*TextBox*Decorator =
         let label               = CreateLabelTextBox t
         label.Background        <- DefaultBackgroundBrush
         label.RenderTransform   <- new TranslateTransform (8.0, -6.0)
@@ -287,7 +330,7 @@ module internal Functions =
         border.Margin           <- DefaultBorderMargin
         border.Padding          <- DefaultBorderPadding
         border.BorderThickness  <- DefaultBorderThickness
-        border.BorderBrush      <- DefaultBorderBrush 
+        border.BorderBrush      <- DefaultBorderBrush
         ignore <| outer.Children.Add(border)
         ignore <| outer.Children.Add(label)
         upcast outer, label, upcast border

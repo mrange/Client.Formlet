@@ -18,29 +18,40 @@ namespace FSharp.Client.Formlet.WPF.TestApp
 
 open System
 open System.Windows
+
 open FSharp.Client.Formlet.Core
 open FSharp.Client.Formlet.WPF
 
-module Main = 
+module Main =
 
-    let LabeledInput lbl text = Input.Text text |> Formlet.Label lbl
+    let LabeledText lbl text =
+        Input.Text text
+        |> Formlet.Validate_NonEmpty
+        |> Enhance.WithErrorVisual
+        |> Formlet.Label lbl
+
+    let LabeledInteger lbl n =
+        Input.Integer n
+        |> Enhance.WithErrorVisual
+        |> Formlet.Label lbl
 
     [<EntryPoint>]
     [<STAThread>]
-    let main argv = 
+    let main argv =
 
-        let f = 
+        let f =
             formlet {
-                let! firstName  = LabeledInput "First name" "Mårten"
-                let! lastName   = LabeledInput "Last name"  "Rånge"
-                let! country    = LabeledInput "Country"    "SWEDEN"
+                let! firstName  = LabeledText    "First name" "Mårten"
+                let! lastName   = LabeledText    "Last name"  "Rånge"
+                let! country    = LabeledText    "Country"    "SWEDEN"
+                let! age        = LabeledInteger "Age"        18
                 let! soc =
                     if country = "SWEDEN" then
-                        LabeledInput "This is sweden"   "740531"
+                        LabeledText "This is sweden"   "740531"
                     else
-                        LabeledInput "This is something else"   "XXX"
-                return firstName, lastName, country, soc
-            } 
+                        LabeledText "This is something else"   "XXX"
+                return firstName, lastName, country, age, soc
+            }
 
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
