@@ -270,13 +270,19 @@ module Controls =
             and  set (value)                = label.Text <- value
 
     type FormletContext () =
-        let x = 3
+        interface IFormletContext with
+            member x.PushTag tag            = ()
+            member x.PopTag ()              = ()
+            member x.PushLabelWidth width   = ()
+            member x.PopLabelWidth ()       = ()
+            member x.LabelWidth             = 100.
 
     type FormletControl<'TValue> (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) as this =
         inherit UnaryElement ()
 
         let mutable isDispatching                       = false
         let mutable formTree                            = Empty
+        let mutable changeGeneration                    = 0
         let         scrollViewer                        = new ScrollViewer ()
 
         do
@@ -320,10 +326,10 @@ module Controls =
             match ft with
             | Empty                 ->
                 0
-            | Singleton e           ->
+            | Element e           ->
                 setElement collection position e
                 1
-            | Container (e, ls, fts) ->
+            | Adorner (e, ls, fts) ->
                 fts |> List.iteri (fun i v -> ignore <| buildTree collection i fl v)
                 setElement collection position e
                 1
@@ -355,11 +361,11 @@ module Controls =
                 let lcount = buildTree collection position fl l
                 let rcount = buildTree collection (position + lcount) fl r
                 lcount + rcount
-            | Apply (apply, ft)     ->
+            | Modify (modifier, ft)     ->
                 let c       = buildTree collection position fl ft
                 let element = getElement collection position
-                apply element
-                c   // TODO: Should map be applied to last, first or all^?
+                modifier element
+                c   // TODO: Should map be applied to last, first or all?
             | Group (_, ft)         ->
                 buildTree collection position fl ft
             | Tag (_, ft)           ->

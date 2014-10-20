@@ -60,12 +60,12 @@ type FormletLayout =
 
 type FormletTree<'Element when 'Element : not struct> =
     | Empty
-    | Singleton of 'Element
-    | Container of 'Element*IList*FormletTree<'Element> list
+    | Element   of 'Element
+    | Adorner   of 'Element*IList*FormletTree<'Element> list
     | Layout    of FormletLayout*FormletTree<'Element>
     | Label     of string*FormletTree<'Element>
     | Fork      of FormletTree<'Element>*FormletTree<'Element>
-    | Apply     of ('Element->unit)*FormletTree<'Element>
+    | Modify    of ('Element->unit)*FormletTree<'Element>
     | Tag       of obj*FormletTree<'Element>
     | Group     of string*FormletTree<'Element>
 
@@ -103,8 +103,16 @@ type FormletCollect<'T> =
                 |> List.map (fun ff -> ff.AddContext context)
             FormletCollect.New x.Value failures
 
+type IFormletContext =
+    abstract PushTag            : obj   -> unit
+    abstract PopTag             : unit  -> unit
 
-type Formlet<'Context, 'Element, 'T when 'Element : not struct> =
+    abstract PushLabelWidth     : double-> unit
+    abstract PopLabelWidth      : unit  -> unit
+
+    abstract LabelWidth         : double
+
+type Formlet<'Context, 'Element, 'T when 'Context : not struct and 'Context :> IFormletContext and 'Element : not struct> =
     {
         Evaluator : 'Context*FormletTree<'Element> -> FormletCollect<'T>*FormletTree<'Element>
     }
@@ -170,12 +178,14 @@ module Formlet =
         New eval
 
     let Tag (tag : obj) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,ft) =
+        let eval (fc : 'Context,ft) =
             let ift =
                 match ft with
                 | Tag (_,ft)    -> ft
                 | _             -> Empty
+            fc.PushTag tag
             let c,nift = f.Evaluate (fc,ift)
+            fc.PopTag ()
             c,Tag (tag, nift)
         New eval
 

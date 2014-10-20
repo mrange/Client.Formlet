@@ -29,8 +29,8 @@ module Input =
     let Text initialText : Formlet<FormletContext, UIElement, string> =
         let eval (fc,ft : FormletTree<UIElement>) =
             match ft with
-            | Singleton (:? InputTextElement as e)  -> (FormletCollect.Success e.Text)     , ft
-            | _                                     -> (FormletCollect.Success initialText), Singleton (upcast new InputTextElement(initialText))
+            | Element (:? InputTextElement as e)-> (FormletCollect.Success e.Text)     , ft
+            | _                                 -> (FormletCollect.Success initialText), Element (upcast new InputTextElement(initialText))
 
         Formlet.New eval
 
@@ -68,10 +68,10 @@ module Enhance =
         let eval (fc,ft : FormletTree<UIElement>) =
             let ift =
                 match ft with
-                | Apply (_,ft)  -> ft
+                | Modify (_,ft)  -> ft
                 | _             -> Empty
             let c,nift  = f.Evaluate (fc, ift)
             let apply   = if c.Failures.IsEmpty then RemoveErrorAdorner else AppendErrorAdorner
-            c, Apply (apply, nift)
+            c, Modify (apply, nift)
 
         Formlet.New eval
