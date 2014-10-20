@@ -20,6 +20,37 @@ open System
 open System.Collections
 open System.Text.RegularExpressions
 
+type IFormletContext =
+    abstract PushTag            : obj   -> unit
+    abstract PopTag             : unit  -> unit
+
+    abstract PushLabelWidth     : double-> unit
+    abstract PopLabelWidth      : unit  -> unit
+
+    abstract LabelWidth         : double
+
+type IFormletCache =
+    abstract Clear  : unit -> unit
+
+type FormletCache<'T>() =
+    let mutable hasValue= false
+    let mutable value   = Unchecked.defaultof<'T>
+
+    interface IFormletCache with
+        member x.Clear () = x.Clear ()
+
+    member x.Clear () = 
+        hasValue    <- false
+        value       <- Unchecked.defaultof<'T>
+
+    member x.Set (v : 'T) = 
+        hasValue    <- true
+        value       <- v
+
+    member x.HasValue   = hasValue
+
+    member x.Value      = value
+
 type FormletOrientation =
     | Parent
     | TopToBottom
@@ -68,6 +99,7 @@ type FormletTree<'Element when 'Element : not struct> =
     | Modify    of ('Element->unit)*FormletTree<'Element>
     | Tag       of obj*FormletTree<'Element>
     | Group     of string*FormletTree<'Element>
+    | Cache     of IFormletCache*FormletTree<'Element>
 
 type FormletFailure =
     {
@@ -88,6 +120,7 @@ type FormletCollect<'T> =
     static member Failure   (failures : FormletFailure list) = FormletCollect.New Unchecked.defaultof<_> failures
     static member FailWith  (failure : string) = FormletCollect<_>.Failure [FormletFailure.New [] failure]
 
+    member x.HasFailures = x.Failures.Length > 0
 
     member x.AddFailure (formfailure : FormletFailure) = FormletCollect.New x.Value (formfailure::x.Failures)
 
@@ -103,18 +136,9 @@ type FormletCollect<'T> =
                 |> List.map (fun ff -> ff.AddContext context)
             FormletCollect.New x.Value failures
 
-type IFormletContext =
-    abstract PushTag            : obj   -> unit
-    abstract PopTag             : unit  -> unit
-
-    abstract PushLabelWidth     : double-> unit
-    abstract PopLabelWidth      : unit  -> unit
-
-    abstract LabelWidth         : double
-
 type Formlet<'Context, 'Element, 'T when 'Context : not struct and 'Context :> IFormletContext and 'Element : not struct> =
     {
-        Evaluator : 'Context*FormletTree<'Element> -> FormletCollect<'T>*FormletTree<'Element>
+        Evaluator : 'Context*IFormletCache list*FormletTree<'Element> -> FormletCollect<'T>*FormletTree<'Element>
     }
     static member New evaluator = { Evaluator = evaluator }
 
@@ -125,31 +149,31 @@ module Formlet =
     let inline New eval : Formlet<'Context, 'Element, 'T> = Formlet<_,_,_>.New eval
 
     let Return (v : 'T) : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,ft)    = (FormletCollect.Success v, Empty)
+        let eval (fc,cl,ft) = (FormletCollect.Success v, Empty)
         New eval
 
     let ReturnFrom (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> = f
 
     let Bind (f1 : Formlet<'Context, 'Element, 'T1>) (u2 : 'T1 -> Formlet<'Context, 'Element, 'T2>) : Formlet<'Context, 'Element, 'T2> =
-        let eval (fc,ft) =
+        let eval (fc,cl,ft) =
             let ft1, ft2 =
                 match ft with
                 | Fork (ft1,ft2)    -> ft1, ft2
                 | _                 -> Empty, Empty
-            let c1, nft1= f1.Evaluate (fc,ft1)
+            let c1, nft1= f1.Evaluate (fc,cl,ft1)
             let f2      = u2 c1.Value
-            let c2, nft2= f2.Evaluate (fc,ft2)
+            let c2, nft2= f2.Evaluate (fc,cl,ft2)
             c2.AddFailures c1.Failures, Fork (nft1, nft2)
         New eval
 
     let Delay (f : unit -> Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
 
-        let eval (fc,ft)    = f().Evaluate (fc,ft)
+        let eval (fc,cl,ft) = f().Evaluate (fc,cl,ft)
         New eval
 
     let MapResult (m : FormletCollect<'T> -> FormletCollect<'U>) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'U> =
-        let eval (fc,ft) =
-            let c,ift = f.Evaluate (fc,ft)
+        let eval (fc,cl,ft) =
+            let c,ift = f.Evaluate (fc,cl,ft)
             (m c), ift
         New eval
 
@@ -158,50 +182,70 @@ module Formlet =
         MapResult m2 f
 
     let Layout (fl : FormletLayout) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,ft) =
+        let eval (fc,cl,ft) =
             let ift =
                 match ft with
                 | Layout (_,ft) -> ft
                 | _             -> Empty
-            let c,nift = f.Evaluate (fc,ift)
+            let c,nift = f.Evaluate (fc,cl,ift)
             c,Layout (fl, nift)
         New eval
 
     let Label (l : string) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,ft) =
+        let eval (fc,cl,ft) =
             let ift =
                 match ft with
                 | Label (_,ft)  -> ft
                 | _             -> Empty
-            let c,nift = f.Evaluate (fc,ift)
+            let c,nift = f.Evaluate (fc,cl,ift)
             c.AddContext l,Label (l, nift)
         New eval
 
     let Tag (tag : obj) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
-        let eval (fc : 'Context,ft) =
+        let eval (fc : 'Context,cl,ft) =
             let ift =
                 match ft with
                 | Tag (_,ft)    -> ft
                 | _             -> Empty
             fc.PushTag tag
-            let c,nift = f.Evaluate (fc,ift)
+            let c,nift = f.Evaluate (fc,cl,ift)
             fc.PopTag ()
             c,Tag (tag, nift)
         New eval
 
     let Group (groupId : string) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,ft) =
+        let eval (fc,cl,ft) =
             let ift =
                 match ft with
                 | Group (gid,ft) when groupId = gid -> ft
                 | _                                 -> Empty
-            let c,nift = f.Evaluate (fc,ift)
+            let c,nift = f.Evaluate (fc,cl,ift)
             c,Group (groupId, nift)
         New eval
 
+    let Cache (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
+        let eval (fc,cl,ft) =
+            let ic,ift =
+                match ft with
+                | Cache (:? FormletCache<'T> as c,ft)   -> c,ft
+                | _                                     -> FormletCache<'T>(), Empty
+
+            if ic.HasValue then
+                FormletCollect.Success ic.Value,ft
+            else
+                let c,nift = f.Evaluate (fc,(upcast ic)::cl,ift)
+
+                if c.HasFailures then
+                    ic.Clear ()
+                else
+                    ic.Set c.Value
+
+                c,Cache (ic, nift)
+        New eval
+
     let Validate (validator : 'T -> string option) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,ft) =
-            let c,nft = f.Evaluate (fc,ft)
+        let eval (fc,cl,ft) =
+            let c,nft = f.Evaluate (fc,cl,ft)
             let v = validator c.Value
             let nc =
                 match v with

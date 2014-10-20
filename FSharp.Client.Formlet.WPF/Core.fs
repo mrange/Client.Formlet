@@ -27,10 +27,15 @@ open Controls
 module Input =
 
     let Text initialText : Formlet<FormletContext, UIElement, string> =
-        let eval (fc,ft : FormletTree<UIElement>) =
+        let eval (fc,cl,ft : FormletTree<UIElement>) =
             match ft with
-            | Element (:? InputTextElement as e)-> (FormletCollect.Success e.Text)     , ft
-            | _                                 -> (FormletCollect.Success initialText), Element (upcast new InputTextElement(initialText))
+            | Element (:? InputTextElement as e)-> 
+                e.CacheChain <- cl
+                (FormletCollect.Success e.Text)     , ft
+            | _                                 -> 
+                let e = new InputTextElement(initialText)
+                e.CacheChain <- cl
+                (FormletCollect.Success initialText), Element (upcast e)
 
         Formlet.New eval
 
@@ -46,6 +51,7 @@ module Input =
                     FormletCollect<_>.FailWith "Input is not an integer"
         Text (v.ToString())
         |> Formlet.MapResult map
+        |> Formlet.Cache
 
 module Enhance =
 
@@ -65,12 +71,12 @@ module Enhance =
 
 
     let WithErrorVisual (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
-        let eval (fc,ft : FormletTree<UIElement>) =
+        let eval (fc,cl,ft : FormletTree<UIElement>) =
             let ift =
                 match ft with
                 | Modify (_,ft)  -> ft
                 | _             -> Empty
-            let c,nift  = f.Evaluate (fc, ift)
+            let c,nift  = f.Evaluate (fc,cl,ift)
             let apply   = if c.Failures.IsEmpty then RemoveErrorAdorner else AppendErrorAdorner
             c, Modify (apply, nift)
 

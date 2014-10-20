@@ -208,13 +208,27 @@ module Controls =
     type InputTextElement(initialText : string) as this =
         inherit TextBox()
 
+        let mutable text        = initialText
+        let mutable cacheChain  = []
+
         do
             this.Text   <- initialText
             this.Margin <- DefaultMargin
 
+        member x.CacheChain 
+            with    get () : IFormletCache list = cacheChain
+            and     set (cc : IFormletCache list) = cacheChain <- cc
+
         override this.OnLostFocus(e) =
             base.OnLostFocus(e)
-            FormletElement.RaiseRebuild this
+
+            if text <> this.Text then
+                text <- this.Text
+
+                for c in cacheChain do
+                    c.Clear ()
+
+                FormletElement.RaiseRebuild this
 
     type ManyElement(initialCount : int) as this =
         inherit BinaryElement()
@@ -370,6 +384,8 @@ module Controls =
                 buildTree collection position fl ft
             | Tag (_, ft)           ->
                 buildTree collection position fl ft
+            | Cache (_, ft)         -> 
+                buildTree collection position fl ft
 
 
         member this.OnRebuild   (sender : obj) (e : RoutedEventArgs) = dispatchOnce this.BuildForm
@@ -385,7 +401,7 @@ module Controls =
 
         member this.Evaluate () =
             let context = FormletContext ()
-            let c,ft = formlet.Evaluate (context, formTree)
+            let c,ft = formlet.Evaluate (context, [], formTree)
             formTree <- ft
             c,ft
 
