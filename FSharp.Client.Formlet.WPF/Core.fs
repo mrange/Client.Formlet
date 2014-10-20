@@ -29,10 +29,10 @@ module Input =
     let Text initialText : Formlet<FormletContext, UIElement, string> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             match ft with
-            | Element (:? InputTextElement as e)-> 
+            | Element (:? InputTextElement as e)->
                 e.CacheChain <- cl
                 (FormletCollect.Success e.Text)     , ft
-            | _                                 -> 
+            | _                                 ->
                 let e = new InputTextElement(initialText)
                 e.CacheChain <- cl
                 (FormletCollect.Success initialText), Element (upcast e)
@@ -41,7 +41,7 @@ module Input =
 
     let Integer v =
         let map (collect : FormletCollect<string>) : FormletCollect<int> =
-            if collect.Failures.Length > 0 then
+            if collect.HasFailures then
                 FormletCollect.New 0 collect.Failures
             else
                 let mutable i = 0
@@ -77,7 +77,7 @@ module Enhance =
                 | Modify (_,ft)  -> ft
                 | _             -> Empty
             let c,nift  = f.Evaluate (fc,cl,ift)
-            let apply   = if c.Failures.IsEmpty then RemoveErrorAdorner else AppendErrorAdorner
+            let apply   = if c.HasFailures then AppendErrorAdorner else RemoveErrorAdorner
             c, Modify (apply, nift)
 
         Formlet.New eval

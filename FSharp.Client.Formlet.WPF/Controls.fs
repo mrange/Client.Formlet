@@ -215,7 +215,7 @@ module Controls =
             this.Text   <- initialText
             this.Margin <- DefaultMargin
 
-        member x.CacheChain 
+        member x.CacheChain
             with    get () : IFormletCache list = cacheChain
             and     set (cc : IFormletCache list) = cacheChain <- cc
 
@@ -384,7 +384,7 @@ module Controls =
                 buildTree collection position fl ft
             | Tag (_, ft)           ->
                 buildTree collection position fl ft
-            | Cache (_, ft)         -> 
+            | Cache (_, ft)         ->
                 buildTree collection position fl ft
 
 
@@ -408,9 +408,8 @@ module Controls =
         member this.SubmitForm () =
             let c,_ = this.Evaluate ()
 
-            match c.Failures.Length with
-            |   0   -> submit c.Value
-            |   _   -> ()
+            if not c.HasFailures then
+                submit c.Value
 
         member this.BuildForm () =
             let _,ft= this.Evaluate ()

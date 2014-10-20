@@ -39,11 +39,11 @@ type FormletCache<'T>() =
     interface IFormletCache with
         member x.Clear () = x.Clear ()
 
-    member x.Clear () = 
+    member x.Clear () =
         hasValue    <- false
         value       <- Unchecked.defaultof<'T>
 
-    member x.Set (v : 'T) = 
+    member x.Set (v : 'T) =
         hasValue    <- true
         value       <- v
 
@@ -120,7 +120,7 @@ type FormletCollect<'T> =
     static member Failure   (failures : FormletFailure list) = FormletCollect.New Unchecked.defaultof<_> failures
     static member FailWith  (failure : string) = FormletCollect<_>.Failure [FormletFailure.New [] failure]
 
-    member x.HasFailures = x.Failures.Length > 0
+    member x.HasFailures = not x.Failures.IsEmpty
 
     member x.AddFailure (formfailure : FormletFailure) = FormletCollect.New x.Value (formfailure::x.Failures)
 
