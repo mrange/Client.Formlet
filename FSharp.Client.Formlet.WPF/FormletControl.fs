@@ -33,9 +33,6 @@ type FormletContext () =
     interface IFormletContext with
         member x.PushTag tag            = ()
         member x.PopTag ()              = ()
-        member x.PushLabelWidth width   = ()
-        member x.PopLabelWidth ()       = ()
-        member x.LabelWidth             = 100.
 
 type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) as this =
     inherit DecoratorElement (scrollViewer)
@@ -69,7 +66,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
             | _                 -> null
         else null
 
-    let trimElements (collection : IList) (count : int) = 
+    let postProcessElements (collection : IList) (count : int) = 
         let c = collection.Count
         for i in (c - 1)..(-1)..count do
             collection.RemoveAt i
@@ -86,7 +83,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
             1
         | Adorner (e, ls, fts) ->
             let c = fts |> List.mapi (fun i v -> buildTree ls i fl v) |> List.sum
-            trimElements ls c
+            postProcessElements ls c
             setElement collection position e
             1
         | Layout (l, ft)        ->
@@ -103,17 +100,9 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
                 
                 let ls  = sp.Children
                 let c   = buildTree ls 0 fl ft
-                trimElements ls c
+                postProcessElements ls c
                 setElement collection position sp
                 1
-        | Label (lbl, ft)       ->
-            let label = CreateElement current (fun () -> LabelElement (100.))
-            label.Text  <- lbl
-            let ls  = label.ChildCollection
-            let c   = buildTree ls 0 fl ft
-            trimElements ls c
-            setElement collection position label
-            1
         | Fork (l,r)            ->
             let lcount = buildTree collection position fl l
             let rcount = buildTree collection (position + lcount) fl r
@@ -167,7 +156,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
         let ls  = sp.Children
         let c   = buildTree ls 0 layout cft
-        trimElements ls c
+        postProcessElements ls c
 
         scrollViewer.Content <- sp
 

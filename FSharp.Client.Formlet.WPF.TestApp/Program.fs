@@ -28,24 +28,30 @@ module Main =
         Input.Text text
         |> Formlet.Validate_NonEmpty
         |> Enhance.WithErrorVisual
-        |> Formlet.Label lbl
+        |> Enhance.WithLabel lbl
 
     let LabeledInteger lbl n =
         Input.Integer n
         |> Enhance.WithErrorVisual
-        |> Formlet.Label lbl
+        |> Enhance.WithLabel lbl
 
     [<EntryPoint>]
     [<STAThread>]
     let main argv =
 
-        let f =
+        let person = 
             formlet {
                 let! firstName  = LabeledText    "First name" "Mårten"
                 let! lastName   = LabeledText    "Last name"  "Rånge"
-                let! country    = LabeledText    "Country"    "SWEDEN"
                 let! age        = LabeledInteger "Age"        18
-                let! soc =
+                return firstName, lastName, age
+            } |> Enhance.WithLegend "Person"
+
+        let f =
+            formlet {
+                let! firstName, lastName, age   = person
+                let! country                    = LabeledText    "Country"    "SWEDEN"
+                let! soc                        =
                     if country = "SWEDEN" then
                         LabeledText "This is sweden"   "740531"
                     elif country = "FINLAND" then

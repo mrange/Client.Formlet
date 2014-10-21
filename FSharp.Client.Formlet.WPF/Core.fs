@@ -68,6 +68,25 @@ module Enhance =
 
 *)
 
+    let WithLabel (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
+        let eval (fc,cl,ft : FormletTree<UIElement>) =
+            let (le, list, ift) =
+                match ft with
+                | Adorner ((:? LabelElement as le), list, ft::_) ->
+                    le, list, ft
+                | Adorner ((:? LabelElement as le), list, _) ->
+                    le, list, Empty
+                | _                         ->
+                    let le  = LabelElement (100.)
+                    let list= le.ChildCollection
+                    le, upcast list, Empty
+
+            let c,nift = f.Evaluate (fc, cl, ift)
+            le.Text <- l
+            c.AddContext l, Adorner (le :> UIElement, list, [nift])
+
+        Formlet.New eval
+
 
     let WithErrorVisual (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
@@ -81,20 +100,21 @@ module Enhance =
 
         Formlet.New eval
 
-    let WithLegend (legend : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
+    let WithLegend (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
-            let (le : UIElement, list, ift) =
+            let le, list, ift =
                 match ft with
                 | Adorner ((:? LegendElement as le), list, ft::_) ->
-                    upcast le, list, ft
+                    le, list, ft
                 | Adorner ((:? LegendElement as le), list, _) ->
-                    upcast le, list, Empty
+                    le, list, Empty
                 | _                         ->
                     let le  = LegendElement ()
                     let list= le.ChildCollection
-                    upcast le, upcast list, Empty
+                    le, upcast list, Empty
 
             let c,nift = f.Evaluate (fc, cl, ift)
-            c, Adorner (le, list, [nift])
+            le.Text <- l
+            c.AddContext l, Adorner (le :> UIElement, list, [nift])
 
         Formlet.New eval

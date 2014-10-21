@@ -24,11 +24,6 @@ type IFormletContext =
     abstract PushTag            : obj   -> unit
     abstract PopTag             : unit  -> unit
 
-    abstract PushLabelWidth     : double-> unit
-    abstract PopLabelWidth      : unit  -> unit
-
-    abstract LabelWidth         : double
-
 type IFormletCache =
     abstract Clear  : unit -> unit
 
@@ -93,10 +88,7 @@ type FormletTree<'Element when 'Element : not struct> =
     | Empty
     | Element   of 'Element
     | Adorner   of 'Element*IList*FormletTree<'Element> list
-//    | Many      of 'Element*IList*FormletTree<'Element> list
     | Layout    of FormletLayout*FormletTree<'Element>
-    // TODO: Remove Label?
-    | Label     of string*FormletTree<'Element>
     | Fork      of FormletTree<'Element>*FormletTree<'Element>
     | Modify    of ('Element->unit)*FormletTree<'Element>
     | Tag       of obj*FormletTree<'Element>
@@ -191,16 +183,6 @@ module Formlet =
                 | _             -> Empty
             let c,nift = f.Evaluate (fc,cl,ift)
             c,Layout (fl, nift)
-        New eval
-
-    let Label (l : string) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,cl,ft) =
-            let ift =
-                match ft with
-                | Label (_,ft)  -> ft
-                | _             -> Empty
-            let c,nift = f.Evaluate (fc,cl,ift)
-            c.AddContext l,Label (l, nift)
         New eval
 
     let Tag (tag : obj) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
