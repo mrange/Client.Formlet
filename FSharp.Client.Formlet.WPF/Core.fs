@@ -80,3 +80,21 @@ module Enhance =
             c, Modify (apply, nift)
 
         Formlet.New eval
+
+    let WithLegend (legend : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
+        let eval (fc,cl,ft : FormletTree<UIElement>) =
+            let (le : UIElement, list, ift) =
+                match ft with
+                | Adorner ((:? LegendElement as le), list, ft::_) ->
+                    upcast le, list, ft
+                | Adorner ((:? LegendElement as le), list, _) ->
+                    upcast le, list, Empty
+                | _                         ->
+                    let le  = LegendElement ()
+                    let list= le.ChildCollection
+                    upcast le, upcast list, Empty
+
+            let c,nift = f.Evaluate (fc, cl, ift)
+            c, Adorner (le, list, [nift])
+
+        Formlet.New eval

@@ -68,9 +68,16 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
             | :? UIElement as e -> e
             | _                 -> null
         else null
+
+    let trimElements (collection : IList) (count : int) = 
+        let c = collection.Count
+        for i in (c - 1)..(-1)..count do
+            collection.RemoveAt i
+
     let rec buildTree (collection : IList) (position : int) (fl : FormletLayout) (ft : FormletTree<UIElement>) : int =
         let current = getElement collection position
 
+        // TODO: Layout should be set
         match ft with
         | Empty                 ->
             0
@@ -78,7 +85,8 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
             setElement collection position e
             1
         | Adorner (e, ls, fts) ->
-            fts |> List.iteri (fun i v -> ignore <| buildTree collection i fl v)
+            let c = fts |> List.mapi (fun i v -> buildTree ls i fl v) |> List.sum
+            trimElements ls c
             setElement collection position e
             1
         | Layout (l, ft)        ->
@@ -92,17 +100,18 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
                     | FormletOrientation.Parent
                     | FormletOrientation.TopToBottom   -> Orientation.Vertical
                     | FormletOrientation.LeftToRight   -> Orientation.Horizontal
-
-                ignore <| buildTree sp.Children 0 fl ft
+                
+                let ls  = sp.Children
+                let c   = buildTree ls 0 fl ft
+                trimElements ls c
                 setElement collection position sp
                 1
         | Label (lbl, ft)       ->
             let label = CreateElement current (fun () -> LabelElement (100.))
             label.Text  <- lbl
-            // label.Right <- null // TODO:
-            let sp = CreateElement label.Right CreateVerticalStackPanel
-            ignore <| buildTree sp.Children 0 fl ft
-            label.Right <- sp
+            let ls  = label.ChildCollection
+            let c   = buildTree ls 0 fl ft
+            trimElements ls c
             setElement collection position label
             1
         | Fork (l,r)            ->
@@ -139,7 +148,8 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
     member this.Evaluate () =
         let context = FormletContext ()
         let c,ft = formlet.Evaluate (context, [], formTree)
-        formTree <- ft
+        // TODO: "Dispose" visual elements that are no longer in tree
+        formTree <- ft 
         c,ft
 
     member this.SubmitForm () =
@@ -155,7 +165,10 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
         // TODO: Defer updates
 
-        ignore <| buildTree sp.Children 0 layout cft
+        let ls  = sp.Children
+        let c   = buildTree ls 0 layout cft
+        trimElements ls c
+
         scrollViewer.Content <- sp
 
         ()

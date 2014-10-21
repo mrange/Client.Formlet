@@ -25,7 +25,7 @@ open FSharp.Client.Formlet.Core
 
 open Elements
 
-module Controls =
+module internal Controls =
 
     type BinaryElement () =
         inherit FormletElement ()
@@ -112,17 +112,21 @@ module Controls =
     type LabelElement (labelWidth : double) as this =
         inherit BinaryElement ()
 
-        let label = CreateLabelTextBox "Label"
+        let label       = CreateLabelTextBox "Label"
+        let stackPanel  = CreateVerticalStackPanel ()
 
         do
             label.Width     <- labelWidth
             this.Orientation<- LeftToRight
             this.Stretch    <- RightStretches
             this.Left       <- label
+            this.Right      <- stackPanel
 
         member this.Text
             with get ()     = label.Text
             and  set value  = label.Text <- value
+
+        member this.ChildCollection = stackPanel.Children
 
     type InputTextElement(initialText : string) as this =
         inherit TextBox()
@@ -181,22 +185,24 @@ module Controls =
 
         member this.CanExecuteDelete () = listBox.SelectedItems.Count > 0
 
-        member this.Inner with get ()   = inner
+        member this.ChildCollection = inner
 
 
     type LegendElement(outer : UIElement, label : TextBox, inner : Decorator) =
         inherit DecoratorElement(outer)
 
+        let stackPanel  = CreateVerticalStackPanel ()
+
+        do 
+            inner.Child <- stackPanel
+
         new () = 
             let outer, label, inner = CreateLegendElements "Group"
             new LegendElement (outer, label, inner)
-
-        member this.Inner
-            with get ()                     = inner.Child
-            and  set (value : UIElement)    = inner.Child <- value
 
         member this.Text
             with get ()                     = label.Text
             and  set (value)                = label.Text <- value
 
+        member this.ChildCollection = stackPanel.Children
 

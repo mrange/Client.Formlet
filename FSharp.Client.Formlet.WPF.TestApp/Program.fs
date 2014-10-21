@@ -48,6 +48,8 @@ module Main =
                 let! soc =
                     if country = "SWEDEN" then
                         LabeledText "This is sweden"   "740531"
+                    elif country = "FINLAND" then
+                        Formlet.Return "N/A"
                     else
                         LabeledText "This is something else"   "XXX"
                 return firstName, lastName, country, age, soc
