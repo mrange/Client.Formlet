@@ -18,6 +18,7 @@ namespace FSharp.Client.Formlet.WPF
 
 open System
 open System.Collections
+open System.Collections.Generic
 open System.Collections.ObjectModel
 open System.Windows
 open System.Windows.Controls
@@ -27,11 +28,19 @@ open FSharp.Client.Formlet.Core
 
 module Controls =
 
+    type FormletDispatchAction =
+        | Rebuild   = 1
+        | Submit    = 2
+        | Reset     = 3
+
     [<AbstractClass>]
-    type FormletElement () =
+    type FormletElement () as this =
         inherit FrameworkElement ()
 
         let mutable isInitialized = false
+
+        do
+            this.Margin <- DefaultMargin
 
         static let rebuildEvent     = CreateRoutedEvent<FormletElement> "Rebuild"
         static let submitEvent      = CreateRoutedEvent<FormletElement> "Submit"
@@ -76,36 +85,25 @@ module Controls =
         member this.Rebuild () = FormletElement.RaiseRebuild this
 
     [<AbstractClass>]
-    type UnaryElement () =
+    type DecoratorElement (value : UIElement) as this =
         inherit FormletElement ()
 
-        let mutable value : UIElement = null
+        let children = [|value|]
+
+        do 
+            this.AddChild value
 
         override this.Children
-            with    get ()   = if value <> null then [|value|] else [||]
-
-        member this.Value
-            with    get ()                      = value
-            and     set (fe : UIElement)  =
-                if not (Object.ReferenceEquals (value,fe)) then
-                    this.RemoveChild (value)
-                    value <- fe
-                    this.AddChild (value)
-                    this.InvalidateMeasure ()
+            with    get ()   = children
 
         override this.MeasureOverride (sz : Size) =
             ignore <| base.MeasureOverride sz
-            let v = value
-            if v <> null
-                then    v.Measure (sz)
-                        v.DesiredSize
-                else    EmptySize
+            value.Measure (sz)
+            value.DesiredSize
 
         override this.ArrangeOverride (sz : Size) =
             ignore <| base.ArrangeOverride sz
-            let v = value
-            if v <> null
-                then    v.Arrange (Rect (sz))
+            value.Arrange (Rect (sz))
             sz
 
     type BinaryElement () =
@@ -240,7 +238,6 @@ module Controls =
         do
             for i in 0..initialCount - 1 do
                 inner.Add null
-            this.Margin         <- DefaultMargin
             this.Stretch        <- RightStretches
             listBox.ItemsSource <- inner
             this.Left           <- buttons
@@ -266,14 +263,12 @@ module Controls =
         member this.Inner with get ()   = inner
 
 
-    type LegendElement() as this =
-        inherit UnaryElement()
+    type LegendElement(outer : UIElement, label : TextBox, inner : Decorator) =
+        inherit DecoratorElement(outer)
 
-        let outer, label, inner = CreateLegendElements "Group"
-
-        do
-            this.Margin <- DefaultMargin
-            this.Value  <- outer
+        new () = 
+            let outer, label, inner = CreateLegendElements "Group"
+            new LegendElement (outer, label, inner)
 
         member this.Inner
             with get ()                     = inner.Child
@@ -291,13 +286,12 @@ module Controls =
             member x.PopLabelWidth ()       = ()
             member x.LabelWidth             = 100.
 
-    type FormletControl<'TValue> (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) as this =
-        inherit UnaryElement ()
+    type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) as this =
+        inherit DecoratorElement (scrollViewer)
 
-        let mutable isDispatching                       = false
-        let mutable formTree                            = Empty
-        let mutable changeGeneration                    = 0
-        let         scrollViewer                        = new ScrollViewer ()
+        let queue                       = SingleDispatchQueue<FormletDispatchAction> (this.Dispatcher)
+        let mutable formTree            = Empty
+        let mutable changeGeneration    = 0
 
         do
             AddRoutedEventHandler FormletElement.RebuildEvent  this this.OnRebuild
@@ -306,17 +300,6 @@ module Controls =
 
             scrollViewer.HorizontalScrollBarVisibility  <- ScrollBarVisibility.Disabled
             scrollViewer.VerticalScrollBarVisibility    <- ScrollBarVisibility.Visible
-            this.Value <- scrollViewer
-
-        let dispatchOnce (action : unit -> unit) =
-            if not isDispatching then
-                isDispatching <- true
-                Dispatch this.Dispatcher (fun () ->
-                    try
-                        action ()
-                    finally
-                        isDispatching <- false
-                    )
 
         let layout = FormletLayout.New TopToBottom Maximize Maximize
 
@@ -387,10 +370,13 @@ module Controls =
             | Cache (_, ft)         ->
                 buildTree collection position fl ft
 
+        new (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) = 
+            let scrollViewer = new ScrollViewer ()
+            FormletControl (scrollViewer, submit, formlet)
 
-        member this.OnRebuild   (sender : obj) (e : RoutedEventArgs) = dispatchOnce this.BuildForm
-        member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = dispatchOnce this.SubmitForm
-        member this.OnReset     (sender : obj) (e : RoutedEventArgs) = dispatchOnce this.ResetForm
+        member this.OnRebuild   (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
+        member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Submit   , this.SubmitForm)
+        member this.OnReset     (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
 
         override this.OnStartUp () =
             this.BuildForm ()

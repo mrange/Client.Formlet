@@ -17,6 +17,7 @@
 namespace FSharp.Client.Formlet.WPF
 
 open System
+open System.Collections.Generic
 open System.Threading
 open System.Windows
 open System.Windows.Controls
@@ -334,3 +335,30 @@ module internal Functions =
         ignore <| outer.Children.Add(border)
         ignore <| outer.Children.Add(label)
         upcast outer, label, upcast border
+
+    type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (dispatcher : Dispatcher) = 
+        let mutable isDispatching   = false
+        let queue                   = Queue<'DispatchEnum*(unit->unit)> ()
+
+        member x.Dispatch (dispatchEnum : 'DispatchEnum, action : unit->unit) =
+            dispatcher.VerifyAccess ()
+            let isAlreadyDispatching = queue |> Seq.exists (fun (de,_) -> de = dispatchEnum)
+            if not isAlreadyDispatching then
+                queue.Enqueue(dispatchEnum, action)
+                x.StartDispatchIfNecessary ()
+
+        member private x.StartDispatchIfNecessary () = 
+            if not isDispatching && queue.Count > 0 then
+                isDispatching <- true
+                let _,action = queue.Peek ()
+                Dispatch dispatcher <| fun () ->
+                    try
+                        action ()
+                    finally
+                        queue.Dequeue ()
+                        isDispatching <- false
+                        x.StartDispatchIfNecessary ()
+
+
+
+
