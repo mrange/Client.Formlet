@@ -55,7 +55,7 @@ module Main =
 
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
-        window.Content <- Controls.FormletControl(submit, f)
+        window.Content <- FormletControl(submit, f)
 
         ignore <| window.ShowDialog ()
 

@@ -18,7 +18,6 @@ namespace FSharp.Client.Formlet.WPF
 
 open System
 open System.Windows
-open System.Windows.Controls
 
 open FSharp.Client.Formlet.Core
 

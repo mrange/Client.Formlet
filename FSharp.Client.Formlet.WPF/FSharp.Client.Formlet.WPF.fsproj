@@ -48,7 +48,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Functions.fs" />
+    <Compile Include="Elements.fs" />
     <Compile Include="Controls.fs" />
+    <Compile Include="FormletControl.fs" />
     <Compile Include="Core.fs" />
   </ItemGroup>
   <ItemGroup>
