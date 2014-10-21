@@ -128,6 +128,8 @@ module internal Controls =
 
         member this.ChildCollection = stackPanel.Children
 
+    let invalidateCacheChain (cl : IFormletCache list) = cl |> List.iter (fun c -> c.Clear ())
+
     type InputTextElement(initialText : string) as this =
         inherit TextBox()
 
@@ -148,8 +150,46 @@ module internal Controls =
             if text <> this.Text then
                 text <- this.Text
 
-                for c in cacheChain do
-                    c.Clear ()
+                invalidateCacheChain cacheChain                                    
+
+                FormletElement.RaiseRebuild this
+
+    type InputDateTimeElement(initialDate : DateTime option) as this =
+        inherit DatePicker()
+
+        let mutable date        = initialDate
+        let mutable cacheChain  = []
+
+        do
+            this.Margin     <- DefaultMargin
+            this.Date       <- initialDate
+
+        member this.CacheChain
+            with    get () : IFormletCache list = cacheChain
+            and     set (cc : IFormletCache list) = cacheChain <- cc
+
+        member private this.ComputeValue () =
+            let d = this.SelectedDate
+            if d.HasValue then Some d.Value
+            else None
+
+        member this.Date 
+            with    get () : DateTime option    = date
+            and     set (cd : DateTime option)  =
+                date <- cd
+                match cd with
+                | Some d    -> this.SelectedDate <- Nullable<DateTime> (d)
+                | _         -> this.SelectedDate <- Nullable<DateTime> ()
+
+        override this.OnSelectedDateChanged(e)  = 
+            base.OnSelectedDateChanged(e)
+
+            let currentDate = this.ComputeValue ()
+
+            if date <> currentDate then
+                this.Date <- currentDate 
+
+                invalidateCacheChain cacheChain                                    
 
                 FormletElement.RaiseRebuild this
 

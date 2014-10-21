@@ -35,30 +35,37 @@ module Main =
         |> Enhance.WithErrorVisual
         |> Enhance.WithLabel lbl
 
+    let LabeledDateTime lbl dt =
+        Input.DateTime dt
+        |> Formlet.Validate (fun dt -> if DateTime.Now < dt then Some "Select a date before today" else None)
+        |> Enhance.WithErrorVisual
+        |> Enhance.WithLabel lbl
+
     [<EntryPoint>]
     [<STAThread>]
     let main argv =
 
         let person = 
             formlet {
-                let! firstName  = LabeledText    "First name" "Mårten"
-                let! lastName   = LabeledText    "Last name"  "Rånge"
-                let! age        = LabeledInteger "Age"        18
-                return firstName, lastName, age
+                let! firstName  = LabeledText       "First name"    "Mårten"
+                let! lastName   = LabeledText       "Last name"     "Rånge"
+                let! birthDate  = LabeledDateTime   "Birth date"    None
+                return firstName, lastName, birthDate
             } |> Enhance.WithLegend "Person"
 
         let f =
             formlet {
-                let! firstName, lastName, age   = person
-                let! country                    = LabeledText    "Country"    "SWEDEN"
-                let! soc                        =
+                let! firstName, lastName, birthDate = person
+                let! country    = LabeledText "Country" "SWEDEN"
+                let! soc        =
                     if country = "SWEDEN" then
-                        LabeledText "This is sweden"   "740531"
+                        LabeledText "This is sweden" "740531"
                     elif country = "FINLAND" then
                         Formlet.Return "N/A"
                     else
-                        LabeledText "This is something else"   "XXX"
-                return firstName, lastName, country, age, soc
+                        LabeledText "This is something else" "XXX"
+                let! salary     = LabeledInteger "Salary" 0
+                return firstName, lastName, birthDate, country, soc, salary
             }
 
         let window  = Window ()

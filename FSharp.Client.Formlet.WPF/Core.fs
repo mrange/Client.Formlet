@@ -27,14 +27,13 @@ module Input =
 
     let Text initialText : Formlet<FormletContext, UIElement, string> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
-            match ft with
-            | Element (:? InputTextElement as e)->
-                e.CacheChain <- cl
-                (FormletCollect.Success e.Text)     , ft
-            | _                                 ->
-                let e = new InputTextElement(initialText)
-                e.CacheChain <- cl
-                (FormletCollect.Success initialText), Element (upcast e)
+            let e =
+                match ft with
+                | Element (:? InputTextElement as e)-> e
+                | _                                 ->
+                    new InputTextElement(initialText)
+            e.CacheChain <- cl
+            (FormletCollect.Success initialText), Element (e :> UIElement)
 
         Formlet.New eval
 
@@ -51,6 +50,26 @@ module Input =
         Text (v.ToString())
         |> Formlet.MapResult map
         |> Formlet.Cache
+
+    let DateTime (initialDateTime : DateTime option) : Formlet<FormletContext, UIElement, DateTime> =
+        let eval (fc,cl,ft : FormletTree<UIElement>) =
+            let e =
+                match ft with
+                | Element (:? InputDateTimeElement as e)-> e
+                | _                                 ->
+                    new InputDateTimeElement(initialDateTime)
+            e.CacheChain <- cl
+
+            let dt = e.Date
+            let c = 
+                match dt with
+                | Some d    -> FormletCollect.Success d
+                | _         -> FormletCollect<_>.FailWith "Select a date"
+
+            c, Element (e :> UIElement)
+
+        Formlet.New eval
+
 
 module Enhance =
 

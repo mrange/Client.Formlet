@@ -173,17 +173,19 @@ module internal Functions =
         let layer = AdornerLayer.GetAdornerLayer e
         let errorAdorner = GetErrorAdorner layer e
 
-        match errorAdorner with
-        | Some a    -> ()
-        | _         -> layer.Add (new ErrorVisualAdorner (e))
+        match layer, errorAdorner with
+        | null, _   -> ()
+        | _, Some a -> ()
+        | _, None   -> layer.Add (new ErrorVisualAdorner (e))
 
     let RemoveErrorAdorner (e : UIElement) : unit =
         let layer = AdornerLayer.GetAdornerLayer e
         let errorAdorner = GetErrorAdorner layer e
 
-        match errorAdorner with
-        | Some a    -> layer.Remove (a)
-        | _         -> ()
+        match layer, errorAdorner with
+        | null, _   -> ()
+        | _, None   -> ()
+        | _, Some a -> layer.Remove (a)
 
     type Command(canExecute : unit -> bool, execute : unit -> unit) =
         let canExecuteChanged           = new Event<EventHandler, EventArgs> ()
