@@ -87,7 +87,7 @@ type FormletLayout =
 type FormletTree<'Element when 'Element : not struct> =
     | Empty
     | Element   of 'Element
-    | Adorner   of 'Element*IList*FormletTree<'Element> list
+    | Adorner   of 'Element*IList*FormletTree<'Element>[]
     | Layout    of FormletLayout*FormletTree<'Element>
     | Fork      of FormletTree<'Element>*FormletTree<'Element>
     | Modify    of ('Element->unit)*FormletTree<'Element>

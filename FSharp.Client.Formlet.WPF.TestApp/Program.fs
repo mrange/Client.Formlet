@@ -51,21 +51,35 @@ module Main =
                 let! lastName   = LabeledText       "Last name"     "Rånge"
                 let! birthDate  = LabeledDateTime   "Birth date"    None
                 return firstName, lastName, birthDate
-            } |> Enhance.WithLegend "Person"
+            } 
+            |> Enhance.WithLegend "Person"
+
+        let address =
+            formlet {
+                let! street = LabeledText       "Street"    ""
+                let! zip    = LabeledText       "Zip"       ""
+                return street, zip
+            }
+
+        let addresses =
+            address
+            |> Enhance.Many 1
+            |> Enhance.WithLegend "Addresses"
 
         let f =
             formlet {
                 let! firstName, lastName, birthDate = person
+                let! addresses  = addresses
                 let! country    = LabeledText "Country" "SWEDEN"
                 let! soc        =
                     if country = "SWEDEN" then
-                        LabeledText "This is sweden" "740531"
+                        LabeledText "This is sweden" "41767"
                     elif country = "FINLAND" then
                         Formlet.Return "N/A"
                     else
                         LabeledText "This is something else" "XXX"
                 let! salary     = LabeledInteger "Salary" 0
-                return firstName, lastName, birthDate, country, soc, salary
+                return firstName, lastName, addresses, birthDate, country, soc, salary
             }
 
         let window  = Window ()

@@ -193,7 +193,7 @@ module internal Controls =
 
                 FormletElement.RaiseRebuild this
 
-    type ManyElement(initialCount : int) as this =
+    type ManyElement() as this =
         inherit BinaryElement()
 
         let listBox, buttons, newButton, deleteButton = CreateManyElements this.CanExecuteNew this.ExecuteNew this.CanExecuteDelete this.ExecuteDelete
@@ -201,14 +201,10 @@ module internal Controls =
         let inner = new ObservableCollection<UIElement> ()
 
         do
-            for i in 0..initialCount - 1 do
-                inner.Add null
             this.Stretch        <- RightStretches
             listBox.ItemsSource <- inner
             this.Left           <- buttons
             this.Right          <- listBox
-
-            FormletElement.RaiseRebuild this
 
         member this.ExecuteNew ()   =   inner.Add null
                                         FormletElement.RaiseRebuild this

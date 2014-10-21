@@ -33,7 +33,7 @@ module Input =
                 | _                                 ->
                     new InputTextElement(initialText)
             e.CacheChain <- cl
-            (FormletCollect.Success initialText), Element (e :> UIElement)
+            (FormletCollect.Success e.Text), Element (e :> UIElement)
 
         Formlet.New eval
 
@@ -70,7 +70,6 @@ module Input =
 
         Formlet.New eval
 
-
 module Enhance =
 
 (*
@@ -86,13 +85,36 @@ module Enhance =
         Formlet.New eval
 
 *)
+    // TODO:
+    let Many (initialCount : int) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T[]> =
+        let eval (fc,cl,ft : FormletTree<UIElement>) =
+            let (le, list, ifts) =
+                match ft with
+                | Adorner ((:? ManyElement as me), list, fts)   ->
+                    me, list, fts
+                | _                         ->
+                    let me  = ManyElement ()
+                    let list= me.ChildCollection
+                    me, upcast list, (Array.create initialCount Empty)
+            
+            let cs, nifts = ifts |> Array.map (fun ift -> f.Evaluate (fc, cl, ift)) |> Array.unzip
+
+            let c   = Array.zeroCreate cs.Length
+            let fs  = ResizeArray<_> ()
+            for i in 0..cs.Length-1 do
+                c.[i] <- cs.[i].Value
+                fs.AddRange cs.[i].Failures
+
+            FormletCollect.New c (fs |> Seq.toList), Adorner (le :> UIElement, list, nifts)
+
+        Formlet.New eval
 
     let WithLabel (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let (le, list, ift) =
                 match ft with
-                | Adorner ((:? LabelElement as le), list, ft::_) ->
-                    le, list, ft
+                | Adorner ((:? LabelElement as le), list, fts) when fts.Length > 0->
+                    le, list, fts.[0]
                 | Adorner ((:? LabelElement as le), list, _) ->
                     le, list, Empty
                 | _                         ->
@@ -102,7 +124,7 @@ module Enhance =
 
             let c,nift = f.Evaluate (fc, cl, ift)
             le.Text <- l
-            c.AddContext l, Adorner (le :> UIElement, list, [nift])
+            c.AddContext l, Adorner (le :> UIElement, list, [|nift|])
 
         Formlet.New eval
 
@@ -123,8 +145,8 @@ module Enhance =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let le, list, ift =
                 match ft with
-                | Adorner ((:? LegendElement as le), list, ft::_) ->
-                    le, list, ft
+                | Adorner ((:? LegendElement as le), list, fts) when fts.Length > 0->
+                    le, list, fts.[0]
                 | Adorner ((:? LegendElement as le), list, _) ->
                     le, list, Empty
                 | _                         ->
@@ -134,6 +156,6 @@ module Enhance =
 
             let c,nift = f.Evaluate (fc, cl, ift)
             le.Text <- l
-            c.AddContext l, Adorner (le :> UIElement, list, [nift])
+            c.AddContext l, Adorner (le :> UIElement, list, [|nift|])
 
         Formlet.New eval

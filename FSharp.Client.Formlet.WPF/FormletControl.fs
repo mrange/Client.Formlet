@@ -82,7 +82,11 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
             setElement collection position e
             1
         | Adorner (e, ls, fts) ->
-            let c = fts |> List.mapi (fun i v -> buildTree ls i fl v) |> List.sum
+            let mutable c = 0
+            let mutable i = 0
+            for ft in fts do
+                c <- c + buildTree ls i fl ft
+                i <- i + 1
             postProcessElements ls c
             setElement collection position e
             1
