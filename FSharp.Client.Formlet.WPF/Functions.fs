@@ -31,6 +31,8 @@ open FSharp.Client.Formlet.Core
 [<AutoOpen>]
 module internal Functions =
 
+    let EmptyChangeNotification : FormletChangeNotification = fun () -> ()
+
     let Enumerator (e : array<'T>) = e.GetEnumerator ()
 
     let CreateRoutedEvent<'TOwner> name =
@@ -143,6 +145,7 @@ module internal Functions =
         p.Freeze ()
         p
 
+    [<AllowNullLiteral>]
     type ErrorVisualAdorner(adornedElement) as this =
         inherit Adorner(adornedElement)
 
@@ -169,23 +172,62 @@ module internal Functions =
         else
             None
 
-    let AppendErrorAdorner (e : UIElement) : unit =
-        let layer = AdornerLayer.GetAdornerLayer e
-        let errorAdorner = GetErrorAdorner layer e
+    let FindAdorner (layer : AdornerLayer) (e : UIElement) : #Adorner =
+        if layer <> null then
+            let adorners = layer.GetAdorners e
+            if adorners <> null then
+                let mutable iter    = 0
+                let mutable result  = null
+                while (Object.ReferenceEquals(result, null)) && iter < adorners.Length do
+                    match adorners.[iter] with
+                    | :? #Adorner as a -> result <- a
+                    | _ -> ()
+                    iter <- iter + 1
 
-        match layer, errorAdorner with
-        | null, _   -> ()
-        | _, Some a -> ()
-        | _, None   -> layer.Add (new ErrorVisualAdorner (e))
+                result
+            else
+                null
+        else
+            null
+
+    let UpdateLoadedAdorner (updater : FrameworkElement*AdornerLayer*#Adorner->unit, fe : FrameworkElement) =
+        let layer   = AdornerLayer.GetAdornerLayer fe
+        if layer <> null then
+            let adorner = FindAdorner layer fe
+            updater (fe, layer, adorner)
+
+    type DelayedAdornerUpdater<'Adorner when 'Adorner :> Adorner and 'Adorner : null>(updater : FrameworkElement*AdornerLayer*'Adorner->unit, fe : FrameworkElement) as this =
+        let onLoaded sender args =
+            fe.Loaded.RemoveHandler this.OnLoaded
+            UpdateLoadedAdorner (updater, fe)
+       
+        member this.OnLoaded = RoutedEventHandler onLoaded
+
+    let UpdateAdorner (updater : FrameworkElement*AdornerLayer*#Adorner->unit) (e : UIElement) : unit =
+        match e with 
+        | :? FrameworkElement as fe -> 
+            if fe.IsLoaded then UpdateLoadedAdorner (updater, fe)
+            else
+                let updater = DelayedAdornerUpdater (updater, fe)
+                fe.Loaded.AddHandler updater.OnLoaded
+        | _ -> ()
+
+
+    let AppendErrorAdornerUpdater (fe : FrameworkElement, layer : AdornerLayer, adorner : ErrorVisualAdorner) =
+        match adorner with
+        | null  -> layer.Add (new ErrorVisualAdorner (fe))
+        | _     -> ()
+
+    let AppendErrorAdorner (e : UIElement) : unit =
+        UpdateAdorner AppendErrorAdornerUpdater e
+
+    let RemoveErrorAdornerUpdater (fe : FrameworkElement, layer : AdornerLayer, adorner : ErrorVisualAdorner) =
+        match adorner with
+        | null  -> ()
+        | _     -> layer.Remove adorner
 
     let RemoveErrorAdorner (e : UIElement) : unit =
-        let layer = AdornerLayer.GetAdornerLayer e
-        let errorAdorner = GetErrorAdorner layer e
-
-        match layer, errorAdorner with
-        | null, _   -> ()
-        | _, None   -> ()
-        | _, Some a -> layer.Remove (a)
+        UpdateAdorner RemoveErrorAdornerUpdater e
 
     type Command(canExecute : unit -> bool, execute : unit -> unit) =
         let canExecuteChanged           = new Event<EventHandler, EventArgs> ()

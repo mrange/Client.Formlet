@@ -35,28 +35,27 @@ module internal Controls =
         let mutable orientation         : FormletOrientation= TopToBottom
         let mutable stretch             : FormletStretch    = NoStretch
 
-        override this.Children
-            with    get ()   =
-                match left, right with
-                    |   null, null  -> [||]
-                    |   l,null      -> [|l|]
-                    |   null,r      -> [|r|]
-                    |   l,r         -> [|l;r;|]
+        override this.Children =
+            match left, right with
+                |   null, null  -> [||]
+                |   l,null      -> [|l|]
+                |   null,r      -> [|r|]
+                |   l,r         -> [|l;r;|]
 
 
         member this.Orientation
-            with get ()                         =   orientation
-            and  set (value)                    =   orientation <- value
-                                                    this.InvalidateMeasure ()
+            with get ()                     =   orientation
+            and  set (value)                =   orientation <- value
+                                                this.InvalidateMeasure ()
 
         member this.Stretch
-            with get ()                         =   stretch
-            and  set (value)                    =   stretch <- value
-                                                    this.InvalidateArrange ()
+            with get ()                     =   stretch
+            and  set (value)                =   stretch <- value
+                                                this.InvalidateArrange ()
 
         member this.Left
-            with    get ()                      = left
-            and     set (fe : UIElement) =
+            with    get ()                  = left
+            and     set (fe : UIElement)    =
                 if not (Object.ReferenceEquals (left,fe)) then
                     this.RemoveChild (left)
                     left <- fe
@@ -64,8 +63,8 @@ module internal Controls =
                     this.InvalidateMeasure ()
 
         member this.Right
-            with    get ()                      = right
-            and     set (fe : UIElement)  =
+            with    get ()                  = right
+            and     set (fe : UIElement)    =
                 if not (Object.ReferenceEquals (right,fe)) then
                     this.RemoveChild (right)
                     right <- fe
@@ -128,21 +127,16 @@ module internal Controls =
 
         member this.ChildCollection = stackPanel.Children
 
-    let invalidateCacheChain (cl : IFormletCache list) = cl |> List.iter (fun c -> c.Clear ())
-
     type InputTextElement(initialText : string) as this =
         inherit TextBox()
 
-        let mutable text        = initialText
-        let mutable cacheChain  = []
+        let mutable text                = initialText
 
         do
             this.Text   <- initialText
             this.Margin <- DefaultMargin
 
-        member x.CacheChain
-            with    get () : IFormletCache list = cacheChain
-            and     set (cc : IFormletCache list) = cacheChain <- cc
+        member val ChangeNotifier = EmptyChangeNotification with get, set
 
         override this.OnLostFocus(e) =
             base.OnLostFocus(e)
@@ -150,48 +144,44 @@ module internal Controls =
             if text <> this.Text then
                 text <- this.Text
 
-                invalidateCacheChain cacheChain                                    
+                this.ChangeNotifier ()
 
-                FormletElement.RaiseRebuild this
-
-    type InputDateTimeElement(initialDate : DateTime option) as this =
+    type InputDateTimeElement(initialDateTime : DateTime option) as this =
         inherit DatePicker()
 
-        let mutable date        = initialDate
-        let mutable cacheChain  = []
+        let mutable dateTime= initialDateTime
+
+        let getNullableDateTime (dt : DateTime option) = 
+            match dt with
+            | Some d    -> Nullable<DateTime> (d)
+            | _         -> Nullable<DateTime> ()
 
         do
-            this.Margin     <- DefaultMargin
-            this.Date       <- initialDate
+            this.Margin         <- DefaultMargin
+            this.SelectedDate   <- getNullableDateTime initialDateTime
 
-        member this.CacheChain
-            with    get () : IFormletCache list = cacheChain
-            and     set (cc : IFormletCache list) = cacheChain <- cc
+        member val ChangeNotifier = EmptyChangeNotification with get, set
 
-        member private this.ComputeValue () =
+        member private this.GetDateTime () =
             let d = this.SelectedDate
             if d.HasValue then Some d.Value
             else None
 
-        member this.Date 
-            with    get () : DateTime option    = date
-            and     set (cd : DateTime option)  =
-                date <- cd
-                match cd with
-                | Some d    -> this.SelectedDate <- Nullable<DateTime> (d)
-                | _         -> this.SelectedDate <- Nullable<DateTime> ()
+        member this.DateTime 
+            with    get () : DateTime option    = dateTime
+            and     set (dt : DateTime option)  =
+                dateTime            <- dt
+                this.SelectedDate   <- getNullableDateTime dt
 
         override this.OnSelectedDateChanged(e)  = 
             base.OnSelectedDateChanged(e)
 
-            let currentDate = this.ComputeValue ()
+            let currentDate = this.GetDateTime ()
 
-            if date <> currentDate then
-                this.Date <- currentDate 
+            if dateTime <> currentDate then
+                this.DateTime <- currentDate 
 
-                invalidateCacheChain cacheChain                                    
-
-                FormletElement.RaiseRebuild this
+                this.ChangeNotifier ()
 
     type ManyElement() as this =
         inherit BinaryElement()
@@ -206,8 +196,10 @@ module internal Controls =
             this.Left           <- buttons
             this.Right          <- listBox
 
+        member val ChangeNotifier = EmptyChangeNotification with get, set
+
         member this.ExecuteNew ()   =   inner.Add null
-                                        FormletElement.RaiseRebuild this
+                                        this.ChangeNotifier ()
         member this.CanExecuteNew ()=   true
 
         member this.ExecuteDelete ()=   let selectedItems = listBox.SelectedItems
@@ -217,7 +209,8 @@ module internal Controls =
 
                                         for i in selectedItems.Count - 1..-1..0 do
                                             ignore <| inner.Remove(selection.[i])
-                                            FormletElement.RaiseRebuild this
+
+                                        this.ChangeNotifier ()
 
         member this.CanExecuteDelete () = listBox.SelectedItems.Count > 0
 

@@ -32,7 +32,7 @@ module Input =
                 | Element (:? InputTextElement as e)-> e
                 | _                                 ->
                     new InputTextElement(initialText)
-            e.CacheChain <- cl
+            e.ChangeNotifier <- cl
             (FormletCollect.Success e.Text), Element (e :> UIElement)
 
         Formlet.New eval
@@ -58,9 +58,9 @@ module Input =
                 | Element (:? InputDateTimeElement as e)-> e
                 | _                                 ->
                     new InputDateTimeElement(initialDateTime)
-            e.CacheChain <- cl
+            e.ChangeNotifier <- cl
 
-            let dt = e.Date
+            let dt = e.DateTime
             let c = 
                 match dt with
                 | Some d    -> FormletCollect.Success d
@@ -88,7 +88,7 @@ module Enhance =
     // TODO:
     let Many (initialCount : int) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T[]> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
-            let (le, list, ifts) =
+            let (me, list, ifts) =
                 match ft with
                 | Adorner ((:? ManyElement as me), list, fts)   ->
                     me, list, fts
@@ -96,6 +96,8 @@ module Enhance =
                     let me  = ManyElement ()
                     let list= me.ChildCollection
                     me, upcast list, (Array.create initialCount Empty)
+
+            me.ChangeNotifier <- cl
             
             let cs, nifts = ifts |> Array.map (fun ift -> f.Evaluate (fc, cl, ift)) |> Array.unzip
 
@@ -105,7 +107,7 @@ module Enhance =
                 c.[i] <- cs.[i].Value
                 fs.AddRange cs.[i].Failures
 
-            FormletCollect.New c (fs |> Seq.toList), Adorner (le :> UIElement, list, nifts)
+            FormletCollect.New c (fs |> Seq.toList), Adorner (me :> UIElement, list, nifts)
 
         Formlet.New eval
 

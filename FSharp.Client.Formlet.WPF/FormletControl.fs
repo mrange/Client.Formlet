@@ -41,13 +41,18 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
     let mutable formTree            = Empty
     let mutable changeGeneration    = 0
 
+    let onLoaded v = this.BuildForm ()
+
+
+
     do
-        AddRoutedEventHandler FormletElement.RebuildEvent  this this.OnRebuild
         AddRoutedEventHandler FormletElement.SubmitEvent   this this.OnSubmit
         AddRoutedEventHandler FormletElement.ResetEvent    this this.OnReset
 
         scrollViewer.HorizontalScrollBarVisibility  <- ScrollBarVisibility.Disabled
         scrollViewer.VerticalScrollBarVisibility    <- ScrollBarVisibility.Visible
+
+        this.Loaded.Add onLoaded
 
     let layout = FormletLayout.New TopToBottom Maximize Maximize
 
@@ -123,16 +128,14 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         | Cache (_, ft)         ->
             buildTree collection position fl ft
 
+    let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
+
     new (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) = 
         let scrollViewer = new ScrollViewer ()
         FormletControl (scrollViewer, submit, formlet)
 
-    member this.OnRebuild   (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
     member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Submit   , this.SubmitForm)
     member this.OnReset     (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
-
-    override this.OnStartUp () =
-        this.BuildForm ()
 
     member this.ResetForm () =
         scrollViewer.Content <- null
@@ -140,7 +143,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
     member this.Evaluate () =
         let context = FormletContext ()
-        let c,ft = formlet.Evaluate (context, [], formTree)
+        let c,ft    = formlet.Evaluate (context, cacheInvalidator, formTree)
         // TODO: "Dispose" visual elements that are no longer in tree
         formTree <- ft 
         c,ft

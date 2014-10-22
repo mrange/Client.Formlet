@@ -130,9 +130,11 @@ type FormletCollect<'T> =
                 |> List.map (fun ff -> ff.AddContext context)
             FormletCollect.New x.Value failures
 
+type FormletChangeNotification = unit -> unit
+
 type Formlet<'Context, 'Element, 'T when 'Context : not struct and 'Context :> IFormletContext and 'Element : not struct> =
     {
-        Evaluator : 'Context*IFormletCache list*FormletTree<'Element> -> FormletCollect<'T>*FormletTree<'Element>
+        Evaluator : 'Context*FormletChangeNotification*FormletTree<'Element> -> FormletCollect<'T>*FormletTree<'Element>
     }
     static member New evaluator = { Evaluator = evaluator }
 
@@ -217,7 +219,8 @@ module Formlet =
             if ic.HasValue then
                 FormletCollect.Success ic.Value,ft
             else
-                let c,nift = f.Evaluate (fc,(upcast ic)::cl,ift)
+                let ncl () = ic.Clear (); cl ()
+                let c,nift = f.Evaluate (fc,ncl,ift)
 
                 if c.HasFailures then
                     ic.Clear ()

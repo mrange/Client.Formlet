@@ -26,34 +26,17 @@ module Elements =
     type FormletElement () as this =
         inherit FrameworkElement ()
 
-        let mutable isInitialized = false
-
         do
             this.Margin <- DefaultMargin
 
-        static let rebuildEvent     = CreateRoutedEvent<FormletElement> "Rebuild"
         static let submitEvent      = CreateRoutedEvent<FormletElement> "Submit"
         static let resetEvent       = CreateRoutedEvent<FormletElement> "Reset"
 
-        static member RebuildEvent  = rebuildEvent
         static member SubmitEvent   = submitEvent
         static member ResetEvent    = resetEvent
 
-        static member RaiseRebuild (sender : UIElement) = RaiseRoutedEvent FormletElement.RebuildEvent  sender
         static member RaiseSubmit  (sender : UIElement) = RaiseRoutedEvent FormletElement.SubmitEvent   sender
         static member RaiseReset   (sender : UIElement) = RaiseRoutedEvent FormletElement.ResetEvent    sender
-
-        override this.MeasureOverride (sz : Size) =
-            if not isInitialized then
-                isInitialized <- true
-                this.OnStartUp ()
-                FormletElement.RaiseRebuild this
-
-            base.MeasureOverride sz
-
-        abstract member OnStartUp : unit -> unit
-
-        default this.OnStartUp () = ()
 
         abstract Children : array<UIElement> with get
 
@@ -71,8 +54,6 @@ module Elements =
                 this.AddLogicalChild (fe)
                 this.AddVisualChild (fe)
 
-        member this.Rebuild () = FormletElement.RaiseRebuild this
-
     [<AbstractClass>]
     type DecoratorElement (value : UIElement) as this =
         inherit FormletElement ()
@@ -82,8 +63,7 @@ module Elements =
         do 
             this.AddChild value
 
-        override this.Children
-            with    get ()   = children
+        override this.Children  = children
 
         override this.MeasureOverride (sz : Size) =
             ignore <| base.MeasureOverride sz

@@ -69,7 +69,7 @@ module Main =
         let f =
             formlet {
                 let! firstName, lastName, birthDate = person
-                let! addresses  = addresses
+                let! address    = address
                 let! country    = LabeledText "Country" "SWEDEN"
                 let! soc        =
                     if country = "SWEDEN" then
@@ -79,7 +79,13 @@ module Main =
                     else
                         LabeledText "This is something else" "XXX"
                 let! salary     = LabeledInteger "Salary" 0
-                return firstName, lastName, addresses, birthDate, country, soc, salary
+                return firstName, lastName, address, birthDate, country, soc, salary
+            }
+
+        let f2 =
+            formlet {
+                let! address    = address
+                return address
             }
 
         let window  = Window ()
