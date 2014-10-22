@@ -43,8 +43,6 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
     let onLoaded v = this.BuildForm ()
 
-
-
     do
         AddRoutedEventHandler FormletElement.SubmitEvent   this this.OnSubmit
         AddRoutedEventHandler FormletElement.ResetEvent    this this.OnReset
@@ -76,13 +74,17 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         for i in (c - 1)..(-1)..count do
             collection.RemoveAt i
 
+    let createEmpty () = new EmptyElement ()
+
     let rec buildTree (collection : IList) (position : int) (fl : FormletLayout) (ft : FormletTree<UIElement>) : int =
         let current = getElement collection position
 
         // TODO: Layout should be set
         match ft with
         | Empty                 ->
-            0
+            let empty = CreateElement current createEmpty
+            setElement collection position empty
+            1
         | Element e           ->
             setElement collection position e
             1
@@ -146,6 +148,9 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         let c,ft    = formlet.Evaluate (context, cacheInvalidator, formTree)
         // TODO: "Dispose" visual elements that are no longer in tree
         formTree <- ft 
+        // TODO: Remove
+        printfn "Result: %A" c
+        printfn "Tree: %A" formTree
         c,ft
 
     member this.SubmitForm () =

@@ -108,6 +108,14 @@ module internal Controls =
 
             sz
 
+    type EmptyElement () =
+        inherit FormletElement ()
+
+        let children = [||]
+
+        override this.Children  = children
+
+
     type LabelElement (labelWidth : double) as this =
         inherit BinaryElement ()
 

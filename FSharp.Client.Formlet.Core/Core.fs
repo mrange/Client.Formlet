@@ -214,6 +214,8 @@ module Formlet =
             let ic,ift =
                 match ft with
                 | Cache (:? FormletCache<'T> as c,ft)   -> c,ft
+                | Cache (c,ft)                          -> c.Clear ()
+                                                           FormletCache<'T>(), Empty
                 | _                                     -> FormletCache<'T>(), Empty
 
             if ic.HasValue then
@@ -230,6 +232,8 @@ module Formlet =
                 c,Cache (ic, nift)
         New eval
 
+    let Run (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> = Cache f
+
     let Validate (validator : 'T -> string option) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
         let eval (fc,cl,ft) =
             let c,nft = f.Evaluate (fc,cl,ft)
@@ -240,7 +244,6 @@ module Formlet =
                 | _             -> c
             nc,nft
         New eval
-
 
     let Validate_NonEmpty (f : Formlet<'Context, 'Element, string>) : Formlet<'Context, 'Element, string> =
         Validate (fun s -> if String.IsNullOrWhiteSpace s then Some "Value must not be empty" else None) f
@@ -254,6 +257,7 @@ module Formlet =
         member this.Bind        (x, f)  = Bind          x f
         member this.Delay       f       = Delay         f
         member this.ReturnFrom  f       = ReturnFrom    f
+        member this.Run         f       = Run           f
 
     let Do = FormletBuilder ()
 

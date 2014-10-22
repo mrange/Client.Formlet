@@ -84,13 +84,21 @@ module Main =
 
         let f2 =
             formlet {
-                let! address    = address
-                return address
+                let! country= LabeledText       "Country"   ""
+                let! street = LabeledText       "Street"    ""
+                let! zip    =
+                    if country = "SWEDEN" then
+                        LabeledText "Post no" "41767"
+                    elif country = "FINLAND" then
+                        Formlet.Return "N/A"
+                    else
+                        LabeledText "ZIP" ""
+                return country, street, zip
             }
 
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
-        window.Content <- FormletControl(submit, f)
+        window.Content <- FormletControl(submit, f2)
 
         ignore <| window.ShowDialog ()
 
