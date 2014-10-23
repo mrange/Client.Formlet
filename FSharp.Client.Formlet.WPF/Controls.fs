@@ -22,6 +22,8 @@ open System.Collections.Generic
 open System.Collections.ObjectModel
 open System.Windows
 open System.Windows.Controls
+open System.Windows.Documents
+open System.Windows.Input
 open System.Windows.Media
 
 open FSharp.Client.Formlet.Core
@@ -29,6 +31,29 @@ open FSharp.Client.Formlet.Core
 open Elements
 
 module internal Controls =
+
+    type SymbolElement(layers : (string*double*Brush*Typeface) array) =
+        inherit FrameworkElement()
+
+        let formattedTexts = 
+            layers
+            |> Array.map (fun (text,size, brush, typeFace) -> FormatText text typeFace size brush)
+
+        
+        override this.MeasureOverride(sz : Size) =
+            ignore <| base.MeasureOverride sz
+            let mutable s = Size ()
+            for formattedText in formattedTexts do
+                let is = Size (formattedText.Width, formattedText.Height)
+                s <- Union s is
+
+            s
+
+        override this.OnRender (drawingContext) = 
+            let rs = this.DesiredSize
+            for formattedText in formattedTexts do
+                let p = Point ((rs.Width - formattedText.Width) / 2.0, (rs.Height - formattedText.Height) / 2.0)
+                drawingContext.DrawText (formattedText, p)
 
     type ContainerElement () as this =
         inherit FormletElement ()
@@ -163,6 +188,7 @@ module internal Controls =
 
         member this.ChildCollection = this :> IList<UIElement>
 
+    // TODO: Make label text selectable, using TextBox is an easy way to do this.
     type LabelElement (labelWidth : double) as this =
         inherit ContainerElement ()
 
@@ -244,19 +270,20 @@ module internal Controls =
                 this.DateTime <- currentDate
 
                 this.ChangeNotifier ()
-(*
-    type ManyElement() as this =
-        inherit BinaryElement()
 
+    type ManyElement(value : StackPanel) as this =
+        inherit DecoratorElement(value)
+
+        let inner = ObservableCollection<UIElement> ()
         let listBox, buttons, newButton, deleteButton = CreateManyElements this.CanExecuteNew this.ExecuteNew this.CanExecuteDelete this.ExecuteDelete
 
-        let inner = new ObservableCollection<UIElement> ()
-
-        do
-            this.Stretch        <- RightStretches
+        do 
             listBox.ItemsSource <- inner
-            this.Left           <- buttons
-            this.Right          <- listBox
+            ignore <| value.Children.Add buttons
+            ignore <| value.Children.Add listBox
+
+        new () =
+            new ManyElement (CreateStackPanel Orientation.Vertical)
 
         member val ChangeNotifier = EmptyChangeNotification with get, set
 
@@ -278,8 +305,6 @@ module internal Controls =
 
         member this.ChildCollection = inner
 
-*)
-
     type LegendElement(outer : UIElement, label : TextBox, inner : Decorator) =
         inherit DecoratorElement(outer)
 
@@ -298,3 +323,133 @@ module internal Controls =
 
         member this.ChildCollection = container :> IList<UIElement>
 
+    type ErrorSummaryElement(sp : StackPanel) as this =
+        inherit DecoratorElement(sp)
+
+        static let okBackgroundBrush    = CreateSimpleGradient (CreateColor "#0B0") (CreateColor "#070") :> Brush
+        static let errorBackgroundBrush = CreateSimpleGradient (CreateColor "#B00") (CreateColor "#700") :> Brush
+
+        static let okBorderBrush        = CreateBrush <| CreateColor "#070"
+        static let errorBorderBrush     = CreateBrush <| CreateColor "#705"
+
+        static let okSymbolBackgroundBrush      = CreateSimpleGradient (CreateColor "#0F0") (CreateColor "#0B0") :> Brush
+        static let errorSymbolBackgroundBrush   = CreateSimpleGradient (CreateColor "#F00") (CreateColor "#B00") :> Brush
+
+        let symbolSize  = 48.0
+        let largeSize   = 24.0
+
+        let container   = new ContainerElement ()
+        let border      = new Border ()
+        let grid        = new Grid ()
+        let stackPanel  = CreateStackPanel Orientation.Vertical
+
+        let submitButton= CreateButton "_Submit" "Click to submit form" this.CanSubmit this.Submit
+        let resetButton = CreateButton "_Reset" "Click to reset form"   this.CanReset this.Reset
+
+        let errorSymbol = new SymbolElement (   [|
+                                                    ("\u26CA", symbolSize       , errorSymbolBackgroundBrush, SymbolTypeFace    )   
+                                                    ("\u26C9", symbolSize       , DefaultBackgroundBrush    , SymbolTypeFace    )
+                                                    ("\u2757", symbolSize / 2.0 , DefaultBackgroundBrush    , SymbolTypeFace    )
+                                                |]
+                                                )
+        let okSymbol    = new SymbolElement (   [|
+                                                    ("\u26CA", symbolSize       , okSymbolBackgroundBrush   , SymbolTypeFace    )   
+                                                    ("\u26C9", symbolSize       , DefaultBackgroundBrush    , SymbolTypeFace    )
+                                                    ("\u2714", symbolSize / 2.0 , DefaultBackgroundBrush    , SymbolTypeFace    )
+                                                |])
+        let label = CreateTextBlock ""
+
+        let mutable failures = []
+
+        do
+            stackPanel.Margin       <- Thickness (0.0, 9.0, 0.0, 0.0)
+            label.Foreground        <- DefaultBackgroundBrush
+            label.FontFamily        <- DefaultFontFamily
+
+            ignore <| stackPanel.Children.Add submitButton
+            ignore <| stackPanel.Children.Add resetButton
+
+            grid 
+            |>  AddGridColumn_Star          1.0 
+            |>  AddGridColumn_Pixel         4.0
+            |>  AddGridColumn_Auto
+            |>  AddGridColumn_Pixel         4.0
+            |>  AddGridColumn_Auto
+            |>  AddGridColumn_Pixel         8.0
+            |>  AddGridChild label          0   0
+            |>  AddGridChild okSymbol       4   0
+            |>  AddGridChild errorSymbol    4   0
+            |>  AddGridChild stackPanel     2   0
+            |>  ignore
+            
+
+            border.Background       <- okBackgroundBrush
+            border.BorderBrush      <- okBorderBrush
+            border.BorderThickness  <- Thickness 2.0
+            border.Margin           <- DefaultMargin
+            border.CornerRadius     <- CornerRadius 8.0
+            border.Padding          <- DefaultMargin
+            border.Child            <- grid
+
+            ignore <| sp.Children.Add border
+            ignore <| sp.Children.Add container
+
+        new () =
+            let sp = CreateStackPanel Orientation.Vertical
+            ErrorSummaryElement sp
+
+
+        member this.Failures
+            with get ()                             = failures
+            and  set (value : FormletFailure list)  = 
+                failures <- value |> List.rev
+                CommandManager.InvalidateRequerySuggested()
+                label.Inlines.Clear ()
+                let inlines = 
+                    if not failures.IsEmpty then
+                        errorSymbol.Visibility  <- Visibility.Visible
+                        okSymbol.Visibility     <- Visibility.Collapsed
+                        border.Background       <- errorBackgroundBrush
+                        border.BorderBrush      <- errorBorderBrush
+                        let inlines = 
+                            failures
+                            |>  List.collect (fun f -> 
+                                [
+                                    new Run (" § ")             :> Inline
+                                    new Run (f.FailureContext   |> LastOrDefault "No context"   )   
+                                                                :> Inline
+                                    new Run (" - ")             :> Inline
+                                    new Run (f.Message)         :> Inline
+                                    new LineBreak()             :> Inline
+                                ])
+                        let full =
+                            [
+                                new Run ("You can't submit because")    |?> (fun r -> r.FontSize <- largeSize)
+                                                                        :> Inline
+                                new LineBreak()                         :> Inline
+                            ]
+                            @ inlines
+                        full |>  List.toArray
+                    else
+                        errorSymbol.Visibility  <- Visibility.Collapsed
+                        okSymbol.Visibility     <- Visibility.Visible
+                        border.Background       <- okBackgroundBrush
+                        border.BorderBrush      <- okBorderBrush
+                        [|
+                                new Run ("Ready to submit")     |?> (fun r -> r.FontSize <- largeSize)
+                                                                :> Inline
+                                new LineBreak()                 :> Inline
+                        |]
+                label.Inlines.AddRange (inlines)
+                if label.Inlines.Count = 0 then
+                    label.Visibility <- Visibility.Collapsed
+                else
+                    label.Visibility <- Visibility.Visible
+
+        member this.Submit ()   = FormletElement.RaiseSubmit this
+        member this.CanSubmit ()= this.Failures.IsEmpty
+
+        member this.Reset ()    = FormletElement.RaiseReset this
+        member this.CanReset () = true
+
+        member this.ChildCollection = container.ChildCollection

@@ -59,7 +59,8 @@ module Main =
                 let! street = LabeledText       "Street"    ""
                 let! zip    = LabeledText       "Zip"       ""
                 return street, zip
-            }
+            } 
+            |> Enhance.WithLegend "Address info"
 (*
         let addresses =
             address
@@ -100,14 +101,16 @@ module Main =
 
         let f3 =
             formlet {
-                let! street = LabeledText       "Street"    ""
-                let! country= LabeledText       "Country"   ""
+                let! street = LabeledText       "Street"    "Test"
+                let! country= LabeledText       "Country"   "SWEDEN"
                 return street, country
             }
 
+        let cf = f |> Enhance.WithErrorSummary
+
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
-        window.Content <- FormletControl(submit, f)
+        window.Content <- FormletControl(submit, cf)
 
         ignore <| window.ShowDialog ()
 

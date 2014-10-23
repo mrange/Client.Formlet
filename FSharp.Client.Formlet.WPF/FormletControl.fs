@@ -84,7 +84,13 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         | Element e           ->
             setElement collection position e
             1
-        | Adorner (e, ls, fts) ->
+        | Adorner (e, ls, ft) ->
+            let c = buildTree ls 0 fl ft
+            postProcessElements ls c
+            setElement collection position e
+            1
+(* TODO:
+        | Many (e, ls, fts) ->
             let mutable c = 0
             let mutable i = 0
             for ft in fts do
@@ -93,6 +99,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
             postProcessElements ls c
             setElement collection position e
             1
+*)
         | Layout (l, ft)        ->
             let nl = fl.Union l
             if nl = fl then
@@ -132,7 +139,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
     member this.OnReset     (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
 
     member this.ResetForm () =
-        scrollViewer.Content <- null
+        formTree <- Empty
         this.BuildForm ()
 
     member this.Evaluate () =
@@ -143,6 +150,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         // TODO: Remove
         printfn "Result: %A" c
         printfn "Tree: %A" formTree
+        printfn "=============================================================="
         c,ft
 
     member this.SubmitForm () =

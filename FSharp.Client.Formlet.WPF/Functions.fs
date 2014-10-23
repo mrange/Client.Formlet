@@ -32,6 +32,10 @@ open FSharp.Client.Formlet.Core
 [<AutoOpen>]
 module internal Functions =
 
+    let inline ( |?> ) (x : 'a) (y : 'a -> unit) = 
+        y x
+        x
+
     let EmptyChangeNotification : FormletChangeNotification = fun () -> ()
 
     let CreateRoutedEvent<'TOwner> name =
@@ -58,6 +62,12 @@ module internal Functions =
 
     let Fail<'T> (msg : string) = FormletCollect.New Unchecked.defaultof<'T> [{FailureContext = []; Message = msg;}]
     let Fail_NeverBuiltUp ()    = Fail "FSharp.Client.Formlet.WPF.ProgrammingError: Never built up"
+
+    let rec LastOrDefault defaultTo ls = 
+        match ls with
+        |   []          -> defaultTo
+        |   [v]         -> v
+        |   _::vs       -> LastOrDefault defaultTo vs
 
     let EmptySize = new Size ()
     let EmptyRect = new Rect ()
@@ -111,7 +121,7 @@ module internal Functions =
     let DefaultBorderThickness      = Thickness (2.0)
 
     let DefaultFontFamily           = FontFamily "Segoe UI"
-    let SymbolFonFamilyt            = FontFamily "Segoe UI Symbol"
+    let SymbolFontFamily            = FontFamily "Segoe UI Symbol"
     let DefaultTypeFace             = Typeface   "Segoe UI"
     let SymbolTypeFace              = Typeface   "Segoe UI Symbol"
 
@@ -132,10 +142,83 @@ module internal Functions =
                                 )
         ft
 
+    let ToNibble ch = 
+        match ch with
+        | c when Char.IsDigit (c)   -> byte  c - byte '0'
+        | 'a'   -> byte 0xA
+        | 'b'   -> byte 0xB
+        | 'c'   -> byte 0xC
+        | 'd'   -> byte 0xD
+        | 'e'   -> byte 0xE
+        | 'f'   -> byte 0xF
+        | 'A'   -> byte 0xA
+        | 'B'   -> byte 0xB
+        | 'C'   -> byte 0xC
+        | 'D'   -> byte 0xD
+        | 'E'   -> byte 0xE
+        | 'F'   -> byte 0xF
+        |   _   -> byte 0
+
+    let ExpandNibble (nibble : byte) = 
+        (nibble <<< 4) ||| (nibble &&& byte 0xF)
+
+    let ToByteFromChar = ToNibble >> ExpandNibble
+
+    let ToByteFromChars (left : char) (right : char) = 
+        let left' = ToNibble left
+        let right' = ToNibble right
+        (left' <<< 4) ||| (right' &&& byte 0xF)
+
+    let CreateColor (color : string) = 
+        let (|ARGB|RGB|LARGB|LRGB|NOCOLOR|) (color : string) = 
+            match color with 
+            | ""                    -> NOCOLOR
+            | c when c.[0] <> '#'   -> NOCOLOR
+            | c -> 
+                match c.Length with 
+                | 4 -> RGB 
+                | 5 -> ARGB
+                | 7 -> LRGB    
+                | 9 -> LARGB
+                | _ -> NOCOLOR
+         
+        match color with 
+        | RGB   -> Color.FromRgb    (ToByteFromChar color.[1]           , ToByteFromChar color.[2]              , ToByteFromChar color.[3]              )
+        | ARGB  -> Color.FromArgb   (ToByteFromChar color.[1]           , ToByteFromChar color.[2]              , ToByteFromChar color.[3]              , ToByteFromChar color.[4]              )
+        | LRGB  -> Color.FromRgb    (ToByteFromChars color.[1] color.[2], ToByteFromChars color.[3] color.[4]   , ToByteFromChars color.[5] color.[6]   )
+        | LARGB -> Color.FromArgb   (ToByteFromChars color.[1] color.[2], ToByteFromChars color.[3] color.[4]   , ToByteFromChars color.[5] color.[6]   , ToByteFromChars color.[7] color.[8]   )
+        | _ -> Colors.Red
+
     let CreateBrush color =
         let br = new SolidColorBrush (color)
         br.Freeze ()
         br
+
+    let CreateSimpleGradient fromColor toColor =
+        let br = LinearGradientBrush (fromColor, toColor, 90.0)
+        br.Freeze ()
+        br
+
+    let AddGridColumn w (grid : Grid) =
+        let gridColumn = ColumnDefinition ()
+        gridColumn.Width <- w
+        grid.ColumnDefinitions.Add gridColumn
+        grid        
+
+    let AddGridColumn_Auto g =
+        AddGridColumn GridLength.Auto g
+
+    let AddGridColumn_Star w g =
+        AddGridColumn (GridLength (w, GridUnitType.Star)) g
+
+    let AddGridColumn_Pixel w g =
+        AddGridColumn (GridLength (w, GridUnitType.Pixel)) g
+
+    let AddGridChild ch c r (grid : Grid) =
+        ignore <| Grid.SetColumn    (ch, c)
+        ignore <| Grid.SetRow       (ch, r)
+        ignore <| grid.Children.Add ch
+        grid        
 
     let CreatePen br th =
         let p = new Pen (br, th)
@@ -357,7 +440,7 @@ module internal Functions =
         ignore <| buttons.Children.Add newButton
         ignore <| buttons.Children.Add deleteButton
         let listBox         = CreateListBox ()
-        listBox, buttons :> Panel, newButton, deleteButton
+        listBox, upcast buttons, newButton, deleteButton
 
     let CreateLegendElements t : UIElement*TextBox*Decorator =
         let label               = CreateLabelTextBox t
@@ -393,7 +476,7 @@ module internal Functions =
                     try
                         action ()
                     finally
-                        queue.Dequeue ()
+                        ignore <| queue.Dequeue ()
                         isDispatching <- false
                         x.StartDispatchIfNecessary ()
 
