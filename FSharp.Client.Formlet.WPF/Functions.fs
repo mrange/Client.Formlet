@@ -17,6 +17,7 @@
 namespace FSharp.Client.Formlet.WPF
 
 open System
+open System.Collections
 open System.Collections.Generic
 open System.Threading
 open System.Windows
@@ -32,8 +33,6 @@ open FSharp.Client.Formlet.Core
 module internal Functions =
 
     let EmptyChangeNotification : FormletChangeNotification = fun () -> ()
-
-    let Enumerator (e : array<'T>) = e.GetEnumerator ()
 
     let CreateRoutedEvent<'TOwner> name =
         EventManager.RegisterRoutedEvent (name + "Event", RoutingStrategy.Bubble, typeof<RoutedEventHandler>, typeof<'TOwner>)
@@ -63,23 +62,22 @@ module internal Functions =
     let EmptySize = new Size ()
     let EmptyRect = new Rect ()
 
-    let TranslateUsingOrientation orientation (fill : bool) (sz : Size) (l : Rect) (r : Size) =
-        match fill,orientation with
-        |   false, TopToBottom  -> Rect (0.0        , l.Bottom  , sz.Width                      , r.Height                      )
-        |   false, LeftToRight  -> Rect (l.Right    , 0.0       , r.Width                       , sz.Height                     )
-        |   true , TopToBottom  -> Rect (0.0        , l.Bottom  , sz.Width                      , max (sz.Height - l.Bottom) 0.0)
-        |   true , LeftToRight  -> Rect (l.Right    , 0.0       , max (sz.Width - l.Right) 0.0  , sz.Height                     )
+    let Arrange (vertical : bool, expand : bool, sz : Size, l : Rect, r : Size) : Rect =
+        match expand,vertical with
+        |   false, true     -> Rect (0.0        , l.Bottom  , sz.Width                      , r.Height                      )
+        |   false, false    -> Rect (l.Right    , 0.0       , r.Width                       , sz.Height                     )
+        |   true , true     -> Rect (0.0        , l.Bottom  , sz.Width                      , max (sz.Height - l.Bottom) 0.0)
+        |   true , false    -> Rect (l.Right    , 0.0       , max (sz.Width - l.Right) 0.0  , sz.Height                     )
 
-    let ExceptVertically (l : Size) (r : Size) =
+    let inline ExceptVertically (l : Size, r : Size) : Size =
         Size (max l.Width r.Width, max (l.Height - r.Height) 0.0)
 
-    let ExceptHorizontally (l : Size) (r : Size) =
+    let inline ExceptHorizontally (l : Size, r : Size) : Size =
         Size (max (l.Width - r.Width) 0.0, max l.Height r.Height)
 
-    let ExceptUsingOrientation (o : FormletOrientation) (l : Size) (r : Size) =
-        match o with
-        |   TopToBottom -> ExceptVertically    l r
-        |   LeftToRight -> ExceptHorizontally  l r
+    let ExceptSize (vertical : bool, l : Size, r : Size) : Size =
+        if vertical then    ExceptVertically (l,r)
+        else                ExceptHorizontally (l,r)
 
     let Intersect (l : Size) (r : Size) =
         Size (min l.Width r.Width, min l.Height r.Height)
@@ -87,16 +85,15 @@ module internal Functions =
     let Union (l : Size) (r : Size) =
         Size (max l.Width r.Width, max l.Height r.Height)
 
-    let UnionVertically (l : Size) (r : Size) =
+    let inline UnionVertically (l : Size, r : Size) =
         Size (max l.Width r.Width, l.Height + r.Height)
 
-    let UnionHorizontally (l : Size) (r : Size) =
+    let inline UnionHorizontally (l : Size, r : Size) =
         Size (l.Width + r.Width, max l.Height r.Height)
 
-    let UnionUsingOrientation (o : FormletOrientation) (l : Size) (r : Size) =
-        match o with
-        |   TopToBottom -> UnionVertically    l r
-        |   LeftToRight -> UnionHorizontally  l r
+    let UnionSize (vertical : bool, l : Size, r : Size) : Size =
+        if vertical then    UnionVertically (l,r)
+        else                UnionHorizontally (l,r)
 
     let DefaultBackgroundBrush      = Brushes.White     :> Brush
     let DefaultForegroundBrush      = Brushes.Black     :> Brush
@@ -200,12 +197,12 @@ module internal Functions =
         let onLoaded sender args =
             fe.Loaded.RemoveHandler this.OnLoaded
             UpdateLoadedAdorner (updater, fe)
-       
+
         member this.OnLoaded = RoutedEventHandler onLoaded
 
     let UpdateAdorner (updater : FrameworkElement*AdornerLayer*#Adorner->unit) (e : UIElement) : unit =
-        match e with 
-        | :? FrameworkElement as fe -> 
+        match e with
+        | :? FrameworkElement as fe ->
             if fe.IsLoaded then UpdateLoadedAdorner (updater, fe)
             else
                 let updater = DelayedAdornerUpdater (updater, fe)
@@ -316,9 +313,6 @@ module internal Functions =
         stackPanel.Orientation <- orientation
         stackPanel
 
-    let CreateVerticalStackPanel () =
-        CreateStackPanel Orientation.Vertical
-
     let CreateButton t toolTip canExecute execute =
         let button      = new Button()
         button.ToolTip  <- toolTip
@@ -380,7 +374,7 @@ module internal Functions =
         ignore <| outer.Children.Add(label)
         upcast outer, label, upcast border
 
-    type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (dispatcher : Dispatcher) = 
+    type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (dispatcher : Dispatcher) =
         let mutable isDispatching   = false
         let queue                   = Queue<'DispatchEnum*(unit->unit)> ()
 
@@ -391,7 +385,7 @@ module internal Functions =
                 queue.Enqueue(dispatchEnum, action)
                 x.StartDispatchIfNecessary ()
 
-        member private x.StartDispatchIfNecessary () = 
+        member private x.StartDispatchIfNecessary () =
             if not isDispatching && queue.Count > 0 then
                 isDispatching <- true
                 let _,action = queue.Peek ()

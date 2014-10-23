@@ -45,13 +45,13 @@ module Main =
     [<STAThread>]
     let main argv =
 
-        let person = 
+        let person =
             formlet {
                 let! firstName  = LabeledText       "First name"    "Mårten"
                 let! lastName   = LabeledText       "Last name"     "Rånge"
                 let! birthDate  = LabeledDateTime   "Birth date"    None
                 return firstName, lastName, birthDate
-            } 
+            }
             |> Enhance.WithLegend "Person"
 
         let address =
@@ -60,12 +60,12 @@ module Main =
                 let! zip    = LabeledText       "Zip"       ""
                 return street, zip
             }
-
+(*
         let addresses =
             address
             |> Enhance.Many 1
             |> Enhance.WithLegend "Addresses"
-
+*)
         let f =
             formlet {
                 let! firstName, lastName, birthDate = person
@@ -93,12 +93,21 @@ module Main =
                         Formlet.Return "N/A"
                     else
                         LabeledText "ZIP" ""
+                let! city   = LabeledText       "City"      ""
+
                 return country, street, zip
+            }
+
+        let f3 =
+            formlet {
+                let! street = LabeledText       "Street"    ""
+                let! country= LabeledText       "Country"   ""
+                return street, country
             }
 
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
-        window.Content <- FormletControl(submit, f2)
+        window.Content <- FormletControl(submit, f)
 
         ignore <| window.ShowDialog ()
 

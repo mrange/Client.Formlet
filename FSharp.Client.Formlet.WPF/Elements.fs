@@ -16,6 +16,7 @@
 
 namespace FSharp.Client.Formlet.WPF
 
+open System.Collections
 open System.Windows
 
 open FSharp.Client.Formlet.Core
@@ -38,14 +39,6 @@ module Elements =
         static member RaiseSubmit  (sender : UIElement) = RaiseRoutedEvent FormletElement.SubmitEvent   sender
         static member RaiseReset   (sender : UIElement) = RaiseRoutedEvent FormletElement.ResetEvent    sender
 
-        abstract Children : array<UIElement> with get
-
-        override this.LogicalChildren = this.Children |> Enumerator
-
-        override this.VisualChildrenCount = this.Children.Length
-
-        override this.GetVisualChild (i : int) = upcast this.Children.[i]
-
         member this.RemoveChild (fe : UIElement) =
                 this.RemoveVisualChild (fe)
                 this.RemoveLogicalChild (fe)
@@ -58,12 +51,17 @@ module Elements =
     type DecoratorElement (value : UIElement) as this =
         inherit FormletElement ()
 
+        // TODO: Unnecessary array
         let children = [|value|]
 
-        do 
+        do
             this.AddChild value
 
-        override this.Children  = children
+        override this.LogicalChildren = children.GetEnumerator ()
+
+        override this.VisualChildrenCount = children.Length
+
+        override this.GetVisualChild (i : int) = upcast children.[i]
 
         override this.MeasureOverride (sz : Size) =
             ignore <| base.MeasureOverride sz

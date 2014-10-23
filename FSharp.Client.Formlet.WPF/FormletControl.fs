@@ -16,7 +16,7 @@
 
 namespace FSharp.Client.Formlet.WPF
 
-open System.Collections
+open System.Collections.Generic
 open System.Windows
 
 open FSharp.Client.Formlet.Core
@@ -54,7 +54,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
     let layout = FormletLayout.New TopToBottom Maximize Maximize
 
-    let setElement (collection : IList) (position : int) (element : UIElement) : unit =
+    let setElement (collection : IList<UIElement>) (position : int) (element : UIElement) : unit =
         if position < collection.Count then
             collection.[position] <- element
         else if position = collection.Count then
@@ -62,28 +62,26 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         else
             HardFail_InvalidCase ()
 
-    let getElement (collection : IList) (position : int) : UIElement =
-        if position < collection.Count then
-            match collection.[position] with
-            | :? UIElement as e -> e
-            | _                 -> null
+    let getElement (collection : IList<UIElement>) (position : int) : UIElement =
+        if position < collection.Count then collection.[position]
         else null
 
-    let postProcessElements (collection : IList) (count : int) = 
+    let postProcessElements (collection : IList<UIElement>) (count : int) =
         let c = collection.Count
         for i in (c - 1)..(-1)..count do
             collection.RemoveAt i
 
     let createEmpty () = new EmptyElement ()
 
-    let rec buildTree (collection : IList) (position : int) (fl : FormletLayout) (ft : FormletTree<UIElement>) : int =
+    let createContainer () = new ContainerElement ()
+
+    let rec buildTree (collection : IList<UIElement>) (position : int) (fl : FormletLayout) (ft : FormletTree<UIElement>) : int =
         let current = getElement collection position
 
         // TODO: Layout should be set
         match ft with
         | Empty                 ->
-            let empty = CreateElement current createEmpty
-            setElement collection position empty
+            setElement collection position null
             1
         | Element e           ->
             setElement collection position e
@@ -102,17 +100,13 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
             if nl = fl then
                 buildTree collection position fl ft
             else
-                let sp = CreateElement current CreateVerticalStackPanel
-                sp.Orientation <-
-                    match fl.Orientation with
-                    | FormletOrientation.Parent
-                    | FormletOrientation.TopToBottom   -> Orientation.Vertical
-                    | FormletOrientation.LeftToRight   -> Orientation.Horizontal
-                
-                let ls  = sp.Children
+                let con = CreateElement current createContainer
+                con.Orientation <- fl.Orientation
+
+                let ls  = con.ChildCollection
                 let c   = buildTree ls 0 fl ft
                 postProcessElements ls c
-                setElement collection position sp
+                setElement collection position con
                 1
         | Fork (l,r)            ->
             let lcount = buildTree collection position fl l
@@ -132,7 +126,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
     let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
 
-    new (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) = 
+    new (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) =
         let scrollViewer = new ScrollViewer ()
         FormletControl (scrollViewer, submit, formlet)
 
@@ -147,7 +141,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         let context = FormletContext ()
         let c,ft    = formlet.Evaluate (context, cacheInvalidator, formTree)
         // TODO: "Dispose" visual elements that are no longer in tree
-        formTree <- ft 
+        formTree <- ft
         // TODO: Remove
         printfn "Result: %A" c
         printfn "Tree: %A" formTree
@@ -162,14 +156,14 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
     member this.BuildForm () =
         let _,ft= this.Evaluate ()
         let cft = FormletTree.Layout (layout, ft)
-        let sp  = CreateElement scrollViewer.Content CreateVerticalStackPanel
+        let con = CreateElement scrollViewer.Content createContainer
 
         // TODO: Defer updates
 
-        let ls  = sp.Children
+        let ls  = con.ChildCollection
         let c   = buildTree ls 0 layout cft
         postProcessElements ls c
 
-        scrollViewer.Content <- sp
+        scrollViewer.Content <- con
 
         ()

@@ -61,7 +61,7 @@ module Input =
             e.ChangeNotifier <- cl
 
             let dt = e.DateTime
-            let c = 
+            let c =
                 match dt with
                 | Some d    -> FormletCollect.Success d
                 | _         -> FormletCollect<_>.FailWith "Select a date"
@@ -71,21 +71,8 @@ module Input =
         Formlet.New eval
 
 module Enhance =
-
-(*
-    let Many (initialCount : int) (f : Formlet<UIElement, 'T>) : Formlet<UIElement, 'T list> =
-        let eval (fc,ft : FormTree<UIElement>) =
-            match ft with
-            | Container ((:? ListBox as lb), fts : FormTree<UIElement> list) ->
-                let ifts =
-                (Formlet.Success []) , ft
-            | _                         ->
-                (Formlet.Success []) , Visual (upcast new ListBox ())
-
-        Formlet.New eval
-
-*)
     // TODO:
+(*
     let Many (initialCount : int) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T[]> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let (me, list, ifts) =
@@ -98,7 +85,7 @@ module Enhance =
                     me, upcast list, (Array.create initialCount Empty)
 
             me.ChangeNotifier <- cl
-            
+
             let cs, nifts = ifts |> Array.map (fun ift -> f.Evaluate (fc, cl, ift)) |> Array.unzip
 
             let c   = Array.zeroCreate cs.Length
@@ -110,6 +97,7 @@ module Enhance =
             FormletCollect.New c (fs |> Seq.toList), Adorner (me :> UIElement, list, nifts)
 
         Formlet.New eval
+*)
 
     let WithLabel (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =

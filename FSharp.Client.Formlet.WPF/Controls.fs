@@ -17,9 +17,12 @@
 namespace FSharp.Client.Formlet.WPF
 
 open System
+open System.Collections
+open System.Collections.Generic
 open System.Collections.ObjectModel
 open System.Windows
 open System.Windows.Controls
+open System.Windows.Media
 
 open FSharp.Client.Formlet.Core
 
@@ -27,113 +30,184 @@ open Elements
 
 module internal Controls =
 
-    type BinaryElement () =
-        inherit FormletElement ()
-
-        let mutable left                : UIElement         = null
-        let mutable right               : UIElement         = null
-        let mutable orientation         : FormletOrientation= TopToBottom
-        let mutable stretch             : FormletStretch    = NoStretch
-
-        override this.Children =
-            match left, right with
-                |   null, null  -> [||]
-                |   l,null      -> [|l|]
-                |   null,r      -> [|r|]
-                |   l,r         -> [|l;r;|]
-
-
-        member this.Orientation
-            with get ()                     =   orientation
-            and  set (value)                =   orientation <- value
-                                                this.InvalidateMeasure ()
-
-        member this.Stretch
-            with get ()                     =   stretch
-            and  set (value)                =   stretch <- value
-                                                this.InvalidateArrange ()
-
-        member this.Left
-            with    get ()                  = left
-            and     set (fe : UIElement)    =
-                if not (Object.ReferenceEquals (left,fe)) then
-                    this.RemoveChild (left)
-                    left <- fe
-                    this.AddChild (left)
-                    this.InvalidateMeasure ()
-
-        member this.Right
-            with    get ()                  = right
-            and     set (fe : UIElement)    =
-                if not (Object.ReferenceEquals (right,fe)) then
-                    this.RemoveChild (right)
-                    right <- fe
-                    this.AddChild (right)
-                    this.InvalidateMeasure ()
-
-        override this.LogicalChildren = this.Children |> Enumerator
-
-        override this.VisualChildrenCount = this.Children.Length
-
-        override this.GetVisualChild (i : int) = upcast this.Children.[i]
-
-        override this.MeasureOverride (sz : Size) =
-            ignore <| base.MeasureOverride sz
-            let c = this.Children
-            match c with
-                |   [||]    ->  EmptySize
-                |   [|v|]   ->  v.Measure (sz)
-                                v.DesiredSize
-                |   [|l;r;|]->  l.Measure (sz)
-                                let nsz = ExceptUsingOrientation orientation sz l.DesiredSize
-                                r.Measure (nsz)
-                                let result = Intersect sz (UnionUsingOrientation orientation l.DesiredSize r.DesiredSize)
-                                result
-                |   _       ->  HardFail_InvalidCase ()
-
-        override this.ArrangeOverride (sz : Size) =
-            ignore <| base.ArrangeOverride sz
-            let c = this.Children
-            match c with
-                |   [||]    ->  ()
-                |   [|v|]   ->  let r = TranslateUsingOrientation orientation false sz EmptyRect v.DesiredSize
-                                ignore <| v.Arrange (r)
-                |   [|l;r;|]->  let fillRight = stretch = RightStretches
-                                let lr = TranslateUsingOrientation orientation false sz EmptyRect l.DesiredSize
-                                let rr = TranslateUsingOrientation orientation fillRight sz lr r.DesiredSize
-                                l.Arrange (lr)
-                                r.Arrange (rr)
-                                ignore <| r.Arrange (rr)
-                |   _       ->  HardFail_InvalidCase ()
-
-            sz
-
     type EmptyElement () =
         inherit FormletElement ()
 
-        let children = [||]
+    type ContainerElement () as this =
+        inherit FormletElement ()
 
-        override this.Children  = children
+        let mutable vertical            = true
+        let mutable expandLast          = true
+        let mutable invalid             = false
+        let mutable duplicateDetector   = HashSet<UIElement> ()
+        let mutable existing            = HashSet<UIElement> ()
 
+        let children                    = ResizeArray<UIElement>()
+
+        let invalidate () =
+            if not invalid then
+                invalid <- true
+                this.InvalidateMeasure ()
+
+        let get i =
+            if i < children.Count then children.[i]
+            else null
+
+        let validate () =
+            if invalid then
+                duplicateDetector.Clear ()
+
+                let count = children.Count
+                for i in 0..count - 1 do
+                    let child = children.[i]
+                    if child <> null && not (duplicateDetector.Add child) then
+                        children.[i] <- null    // Duplicate detected, null the duplicate
+
+                for e in existing do
+                    if not (duplicateDetector.Contains e) then
+                        this.RemoveChild e
+
+                for i in 0..count - 1 do
+                    let child = children.[i]
+                    if child <> null && existing.Add child then
+                        this.AddChild child
+
+                duplicateDetector.Clear ()
+
+                invalid <- false
+
+        interface IList<UIElement> with
+            member this.Count       = children.Count
+            member this.IsReadOnly  = false
+            member this.Add e       =
+                children.Add e
+                invalidate ()
+            member this.Clear ()    =
+                children.Clear ()
+                invalidate ()
+            member this.Contains e  = children.Contains e
+            member this.CopyTo (i,a)= children.CopyTo (i,a)
+            member this.IndexOf e   = children.IndexOf e
+            member this.Insert (i,e)=
+                let existing = get i
+                if not (Object.ReferenceEquals (existing, e)) then
+                    children.Insert (i,e)
+                    invalidate ()
+            member this.Remove e    =
+                let res = children.Remove e
+                if res then invalidate ()
+                res
+            member this.RemoveAt i  =
+                children.RemoveAt i
+                invalidate ()
+
+            member this.Item
+                with get(index)         = children.[index]
+                and  set(index)(value)  =
+                    let existing = get index
+                    if not (Object.ReferenceEquals (existing, value)) then
+                        children.[index] <- value
+                        invalidate ()
+
+            member this.GetEnumerator ()    = children.GetEnumerator () :> IEnumerator<UIElement>
+            member this.GetEnumerator()     = children.GetEnumerator () :> IEnumerator
+
+        member x.Orientation
+            with get ()     =
+                if vertical then TopToBottom
+                else LeftToRight
+            and  set o      =
+                match vertical, o with
+                | false, TopToBottom
+                | true , LeftToRight    -> vertical <- o = TopToBottom; invalidate ()
+                | _                     -> ()
+
+        member x.ExpandLast
+            with get ()     = expandLast
+            and  set e      =
+                match expandLast, e with
+                | false, true
+                | true , false      -> vertical <- e; invalidate ()
+                | _    , _          -> ()
+
+
+        override this.LogicalChildren = children.GetEnumerator () :> IEnumerator
+
+        override this.VisualChildrenCount = children.Count
+
+        override this.GetVisualChild (i : int) = upcast children.[i]
+
+        override this.MeasureOverride (sz : Size) =
+            validate ()
+
+            let sz = this.ModifyMeasure sz
+
+            ignore <| base.MeasureOverride sz
+
+            let mutable estimated = EmptySize
+            let mutable remaining = sz
+
+            let count = children.Count
+            for i in 0..count - 1 do
+                let child = children.[i]
+                if child <> null then
+                    child.Measure remaining
+                    let desired = child.DesiredSize
+                    remaining <- ExceptSize (vertical, remaining, desired)
+                    estimated <- UnionSize (vertical, estimated, desired)
+
+            Intersect sz estimated
+
+        override this.ArrangeOverride (sz : Size) =
+            validate ()
+
+            ignore <| base.ArrangeOverride sz
+
+            let mutable arranged = this.ModifyArrange EmptyRect
+
+            let count = children.Count
+            for i in 0..count - 1 do
+                let child = children.[i]
+                if child <> null then
+                    let expand = (i = count - 1) && expandLast
+                    arranged <- Arrange (vertical, expand, sz, arranged, child.DesiredSize)
+                    child.Arrange arranged
+
+            sz
+
+        abstract ModifyMeasure : Size -> Size
+        abstract ModifyArrange : Rect -> Rect
+
+        default this.ModifyMeasure sz   = sz
+        default this.ModifyArrange r    = r
+
+        member this.ChildCollection = this :> IList<UIElement>
 
     type LabelElement (labelWidth : double) as this =
-        inherit BinaryElement ()
+        inherit ContainerElement ()
 
-        let label       = CreateLabelTextBox "Label"
-        let stackPanel  = CreateVerticalStackPanel ()
+        let mutable formattedText   = FormatText "Label" DefaultTypeFace 12. DefaultForegroundBrush
+        let origin = Point(0.,0.)
 
         do
-            label.Width     <- labelWidth
-            this.Orientation<- LeftToRight
-            this.Stretch    <- RightStretches
-            this.Left       <- label
-            this.Right      <- stackPanel
+            this.Orientation <- FormletOrientation.LeftToRight
 
         member this.Text
-            with get ()     = label.Text
-            and  set value  = label.Text <- value
+            with get ()     = formattedText.Text
+            and  set value  =
+                if formattedText.Text <> value then
+                    formattedText <- FormatText value DefaultTypeFace 12. DefaultForegroundBrush
+                    this.InvalidateVisual ()
 
-        member this.ChildCollection = stackPanel.Children
+        override this.OnRender (dc : DrawingContext) =
+            dc.DrawText (formattedText, origin)
+            ()
+
+        override this.ModifyMeasure sz   =
+            let desired     = Size (labelWidth, sz.Height)
+            ExceptHorizontally (sz, desired)
+
+        override this.ModifyArrange r    =  Rect (r.X + labelWidth, r.Y, r.Width, r.Height)
 
     type InputTextElement(initialText : string) as this =
         inherit TextBox()
@@ -159,7 +233,7 @@ module internal Controls =
 
         let mutable dateTime= initialDateTime
 
-        let getNullableDateTime (dt : DateTime option) = 
+        let getNullableDateTime (dt : DateTime option) =
             match dt with
             | Some d    -> Nullable<DateTime> (d)
             | _         -> Nullable<DateTime> ()
@@ -175,22 +249,22 @@ module internal Controls =
             if d.HasValue then Some d.Value
             else None
 
-        member this.DateTime 
+        member this.DateTime
             with    get () : DateTime option    = dateTime
             and     set (dt : DateTime option)  =
                 dateTime            <- dt
                 this.SelectedDate   <- getNullableDateTime dt
 
-        override this.OnSelectedDateChanged(e)  = 
+        override this.OnSelectedDateChanged(e)  =
             base.OnSelectedDateChanged(e)
 
             let currentDate = this.GetDateTime ()
 
             if dateTime <> currentDate then
-                this.DateTime <- currentDate 
+                this.DateTime <- currentDate
 
                 this.ChangeNotifier ()
-
+(*
     type ManyElement() as this =
         inherit BinaryElement()
 
@@ -224,16 +298,17 @@ module internal Controls =
 
         member this.ChildCollection = inner
 
+*)
 
     type LegendElement(outer : UIElement, label : TextBox, inner : Decorator) =
         inherit DecoratorElement(outer)
 
-        let stackPanel  = CreateVerticalStackPanel ()
+        let container   = new ContainerElement ()
 
-        do 
-            inner.Child <- stackPanel
+        do
+            inner.Child <- container
 
-        new () = 
+        new () =
             let outer, label, inner = CreateLegendElements "Group"
             new LegendElement (outer, label, inner)
 
@@ -241,5 +316,5 @@ module internal Controls =
             with get ()                     = label.Text
             and  set (value)                = label.Text <- value
 
-        member this.ChildCollection = stackPanel.Children
+        member this.ChildCollection = container :> IList<UIElement>
 
