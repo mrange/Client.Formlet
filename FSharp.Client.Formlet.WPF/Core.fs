@@ -110,7 +110,7 @@ module Enhance =
                 | _                         ->
                     let le  = LabelElement (100.)
                     let list= le.ChildCollection
-                    le, upcast list, Empty
+                    le, list, Empty
 
             let c,nift = f.Evaluate (fc, cl, ift)
             le.Text <- l
@@ -142,7 +142,7 @@ module Enhance =
                 | _                         ->
                     let le  = LegendElement ()
                     let list= le.ChildCollection
-                    le, upcast list, Empty
+                    le, list, Empty
 
             let c,nift = f.Evaluate (fc, cl, ift)
             le.Text <- l

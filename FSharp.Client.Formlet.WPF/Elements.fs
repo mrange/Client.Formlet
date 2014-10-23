@@ -18,6 +18,7 @@ namespace FSharp.Client.Formlet.WPF
 
 open System.Collections
 open System.Windows
+open System.Windows.Media
 
 open FSharp.Client.Formlet.Core
 
@@ -40,10 +41,12 @@ module Elements =
         static member RaiseReset   (sender : UIElement) = RaiseRoutedEvent FormletElement.ResetEvent    sender
 
         member this.RemoveChild (fe : UIElement) =
+            if fe <> null then
                 this.RemoveVisualChild (fe)
                 this.RemoveLogicalChild (fe)
 
         member this.AddChild (fe : UIElement) =
+            if fe <> null then
                 this.AddLogicalChild (fe)
                 this.AddVisualChild (fe)
 

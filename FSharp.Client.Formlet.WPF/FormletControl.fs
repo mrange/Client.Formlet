@@ -71,8 +71,6 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         for i in (c - 1)..(-1)..count do
             collection.RemoveAt i
 
-    let createEmpty () = new EmptyElement ()
-
     let createContainer () = new ContainerElement ()
 
     let rec buildTree (collection : IList<UIElement>) (position : int) (fl : FormletLayout) (ft : FormletTree<UIElement>) : int =

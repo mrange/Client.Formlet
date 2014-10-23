@@ -30,59 +30,35 @@ open Elements
 
 module internal Controls =
 
-    type EmptyElement () =
-        inherit FormletElement ()
-
     type ContainerElement () as this =
         inherit FormletElement ()
 
         let mutable vertical            = true
         let mutable expandLast          = true
-        let mutable invalid             = false
         let mutable duplicateDetector   = HashSet<UIElement> ()
         let mutable existing            = HashSet<UIElement> ()
 
         let children                    = ResizeArray<UIElement>()
 
         let invalidate () =
-            if not invalid then
-                invalid <- true
-                this.InvalidateMeasure ()
+            this.InvalidateMeasure ()
 
         let get i =
             if i < children.Count then children.[i]
             else null
-
-        let validate () =
-            if invalid then
-                duplicateDetector.Clear ()
-
-                let count = children.Count
-                for i in 0..count - 1 do
-                    let child = children.[i]
-                    if child <> null && not (duplicateDetector.Add child) then
-                        children.[i] <- null    // Duplicate detected, null the duplicate
-
-                for e in existing do
-                    if not (duplicateDetector.Contains e) then
-                        this.RemoveChild e
-
-                for i in 0..count - 1 do
-                    let child = children.[i]
-                    if child <> null && existing.Add child then
-                        this.AddChild child
-
-                duplicateDetector.Clear ()
-
-                invalid <- false
 
         interface IList<UIElement> with
             member this.Count       = children.Count
             member this.IsReadOnly  = false
             member this.Add e       =
                 children.Add e
+                this.AddChild e
                 invalidate ()
             member this.Clear ()    =
+                let count = children.Count
+                for i in 0..count - 1 do
+                    let child = children.[i]
+                    this.RemoveChild child 
                 children.Clear ()
                 invalidate ()
             member this.Contains e  = children.Contains e
@@ -92,21 +68,29 @@ module internal Controls =
                 let existing = get i
                 if not (Object.ReferenceEquals (existing, e)) then
                     children.Insert (i,e)
+                    this.RemoveChild existing
+                    this.AddChild e
                     invalidate ()
             member this.Remove e    =
                 let res = children.Remove e
-                if res then invalidate ()
+                if res then 
+                    this.RemoveChild e
+                    invalidate ()
                 res
             member this.RemoveAt i  =
+                let existing = get i
                 children.RemoveAt i
+                this.RemoveChild existing
                 invalidate ()
 
             member this.Item
                 with get(index)         = children.[index]
-                and  set(index)(value)  =
+                and  set(index)(e)  =
                     let existing = get index
-                    if not (Object.ReferenceEquals (existing, value)) then
-                        children.[index] <- value
+                    if not (Object.ReferenceEquals (existing, e)) then
+                        children.[index] <- e
+                        this.RemoveChild existing
+                        this.AddChild e
                         invalidate ()
 
             member this.GetEnumerator ()    = children.GetEnumerator () :> IEnumerator<UIElement>
@@ -138,8 +122,6 @@ module internal Controls =
         override this.GetVisualChild (i : int) = upcast children.[i]
 
         override this.MeasureOverride (sz : Size) =
-            validate ()
-
             let sz = this.ModifyMeasure sz
 
             ignore <| base.MeasureOverride sz
@@ -159,8 +141,6 @@ module internal Controls =
             Intersect sz estimated
 
         override this.ArrangeOverride (sz : Size) =
-            validate ()
-
             ignore <| base.ArrangeOverride sz
 
             let mutable arranged = this.ModifyArrange EmptyRect
@@ -187,7 +167,7 @@ module internal Controls =
         inherit ContainerElement ()
 
         let mutable formattedText   = FormatText "Label" DefaultTypeFace 12. DefaultForegroundBrush
-        let origin = Point(0.,0.)
+        let origin = Point(2.,4.)
 
         do
             this.Orientation <- FormletOrientation.LeftToRight
