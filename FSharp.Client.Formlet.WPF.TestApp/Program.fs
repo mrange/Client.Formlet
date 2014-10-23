@@ -59,7 +59,7 @@ module Main =
                 let! street = LabeledText       "Street"    ""
                 let! zip    = LabeledText       "Zip"       ""
                 return street, zip
-            } 
+            }
             |> Enhance.WithLegend "Address info"
 (*
         let addresses =

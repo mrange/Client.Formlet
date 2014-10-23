@@ -32,7 +32,7 @@ open FSharp.Client.Formlet.Core
 [<AutoOpen>]
 module internal Functions =
 
-    let inline ( |?> ) (x : 'a) (y : 'a -> unit) = 
+    let inline ( |?> ) (x : 'a) (y : 'a -> unit) =
         y x
         x
 
@@ -63,7 +63,7 @@ module internal Functions =
     let Fail<'T> (msg : string) = FormletCollect.New Unchecked.defaultof<'T> [{FailureContext = []; Message = msg;}]
     let Fail_NeverBuiltUp ()    = Fail "FSharp.Client.Formlet.WPF.ProgrammingError: Never built up"
 
-    let rec LastOrDefault defaultTo ls = 
+    let rec LastOrDefault defaultTo ls =
         match ls with
         |   []          -> defaultTo
         |   [v]         -> v
@@ -142,7 +142,7 @@ module internal Functions =
                                 )
         ft
 
-    let ToNibble ch = 
+    let ToNibble ch =
         match ch with
         | c when Char.IsDigit (c)   -> byte  c - byte '0'
         | 'a'   -> byte 0xA
@@ -159,30 +159,30 @@ module internal Functions =
         | 'F'   -> byte 0xF
         |   _   -> byte 0
 
-    let ExpandNibble (nibble : byte) = 
+    let ExpandNibble (nibble : byte) =
         (nibble <<< 4) ||| (nibble &&& byte 0xF)
 
     let ToByteFromChar = ToNibble >> ExpandNibble
 
-    let ToByteFromChars (left : char) (right : char) = 
+    let ToByteFromChars (left : char) (right : char) =
         let left' = ToNibble left
         let right' = ToNibble right
         (left' <<< 4) ||| (right' &&& byte 0xF)
 
-    let CreateColor (color : string) = 
-        let (|ARGB|RGB|LARGB|LRGB|NOCOLOR|) (color : string) = 
-            match color with 
+    let CreateColor (color : string) =
+        let (|ARGB|RGB|LARGB|LRGB|NOCOLOR|) (color : string) =
+            match color with
             | ""                    -> NOCOLOR
             | c when c.[0] <> '#'   -> NOCOLOR
-            | c -> 
-                match c.Length with 
-                | 4 -> RGB 
+            | c ->
+                match c.Length with
+                | 4 -> RGB
                 | 5 -> ARGB
-                | 7 -> LRGB    
+                | 7 -> LRGB
                 | 9 -> LARGB
                 | _ -> NOCOLOR
-         
-        match color with 
+
+        match color with
         | RGB   -> Color.FromRgb    (ToByteFromChar color.[1]           , ToByteFromChar color.[2]              , ToByteFromChar color.[3]              )
         | ARGB  -> Color.FromArgb   (ToByteFromChar color.[1]           , ToByteFromChar color.[2]              , ToByteFromChar color.[3]              , ToByteFromChar color.[4]              )
         | LRGB  -> Color.FromRgb    (ToByteFromChars color.[1] color.[2], ToByteFromChars color.[3] color.[4]   , ToByteFromChars color.[5] color.[6]   )
@@ -203,7 +203,7 @@ module internal Functions =
         let gridColumn = ColumnDefinition ()
         gridColumn.Width <- w
         grid.ColumnDefinitions.Add gridColumn
-        grid        
+        grid
 
     let AddGridColumn_Auto g =
         AddGridColumn GridLength.Auto g
@@ -218,7 +218,7 @@ module internal Functions =
         ignore <| Grid.SetColumn    (ch, c)
         ignore <| Grid.SetRow       (ch, r)
         ignore <| grid.Children.Add ch
-        grid        
+        grid
 
     let CreatePen br th =
         let p = new Pen (br, th)

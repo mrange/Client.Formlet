@@ -35,11 +35,11 @@ module internal Controls =
     type SymbolElement(layers : (string*double*Brush*Typeface) array) =
         inherit FrameworkElement()
 
-        let formattedTexts = 
+        let formattedTexts =
             layers
             |> Array.map (fun (text,size, brush, typeFace) -> FormatText text typeFace size brush)
 
-        
+
         override this.MeasureOverride(sz : Size) =
             ignore <| base.MeasureOverride sz
             let mutable s = Size ()
@@ -49,7 +49,7 @@ module internal Controls =
 
             s
 
-        override this.OnRender (drawingContext) = 
+        override this.OnRender (drawingContext) =
             let rs = this.DesiredSize
             for formattedText in formattedTexts do
                 let p = Point ((rs.Width - formattedText.Width) / 2.0, (rs.Height - formattedText.Height) / 2.0)
@@ -83,7 +83,7 @@ module internal Controls =
                 let count = children.Count
                 for i in 0..count - 1 do
                     let child = children.[i]
-                    this.RemoveChild child 
+                    this.RemoveChild child
                 children.Clear ()
                 invalidate ()
             member this.Contains e  = children.Contains e
@@ -98,7 +98,7 @@ module internal Controls =
                     invalidate ()
             member this.Remove e    =
                 let res = children.Remove e
-                if res then 
+                if res then
                     this.RemoveChild e
                     invalidate ()
                 res
@@ -277,7 +277,7 @@ module internal Controls =
         let inner = ObservableCollection<UIElement> ()
         let listBox, buttons, newButton, deleteButton = CreateManyElements this.CanExecuteNew this.ExecuteNew this.CanExecuteDelete this.ExecuteDelete
 
-        do 
+        do
             listBox.ItemsSource <- inner
             ignore <| value.Children.Add buttons
             ignore <| value.Children.Add listBox
@@ -347,13 +347,13 @@ module internal Controls =
         let resetButton = CreateButton "_Reset" "Click to reset form"   this.CanReset this.Reset
 
         let errorSymbol = new SymbolElement (   [|
-                                                    ("\u26CA", symbolSize       , errorSymbolBackgroundBrush, SymbolTypeFace    )   
+                                                    ("\u26CA", symbolSize       , errorSymbolBackgroundBrush, SymbolTypeFace    )
                                                     ("\u26C9", symbolSize       , DefaultBackgroundBrush    , SymbolTypeFace    )
                                                     ("\u2757", symbolSize / 2.0 , DefaultBackgroundBrush    , SymbolTypeFace    )
                                                 |]
                                                 )
         let okSymbol    = new SymbolElement (   [|
-                                                    ("\u26CA", symbolSize       , okSymbolBackgroundBrush   , SymbolTypeFace    )   
+                                                    ("\u26CA", symbolSize       , okSymbolBackgroundBrush   , SymbolTypeFace    )
                                                     ("\u26C9", symbolSize       , DefaultBackgroundBrush    , SymbolTypeFace    )
                                                     ("\u2714", symbolSize / 2.0 , DefaultBackgroundBrush    , SymbolTypeFace    )
                                                 |])
@@ -369,8 +369,8 @@ module internal Controls =
             ignore <| stackPanel.Children.Add submitButton
             ignore <| stackPanel.Children.Add resetButton
 
-            grid 
-            |>  AddGridColumn_Star          1.0 
+            grid
+            |>  AddGridColumn_Star          1.0
             |>  AddGridColumn_Pixel         4.0
             |>  AddGridColumn_Auto
             |>  AddGridColumn_Pixel         4.0
@@ -381,7 +381,7 @@ module internal Controls =
             |>  AddGridChild errorSymbol    4   0
             |>  AddGridChild stackPanel     2   0
             |>  ignore
-            
+
 
             border.Background       <- okBackgroundBrush
             border.BorderBrush      <- okBorderBrush
@@ -401,22 +401,22 @@ module internal Controls =
 
         member this.Failures
             with get ()                             = failures
-            and  set (value : FormletFailure list)  = 
+            and  set (value : FormletFailure list)  =
                 failures <- value |> List.rev
                 CommandManager.InvalidateRequerySuggested()
                 label.Inlines.Clear ()
-                let inlines = 
+                let inlines =
                     if not failures.IsEmpty then
                         errorSymbol.Visibility  <- Visibility.Visible
                         okSymbol.Visibility     <- Visibility.Collapsed
                         border.Background       <- errorBackgroundBrush
                         border.BorderBrush      <- errorBorderBrush
-                        let inlines = 
+                        let inlines =
                             failures
-                            |>  List.collect (fun f -> 
+                            |>  List.collect (fun f ->
                                 [
                                     new Run (" § ")             :> Inline
-                                    new Run (f.FailureContext   |> LastOrDefault "No context"   )   
+                                    new Run (f.FailureContext   |> LastOrDefault "No context"   )
                                                                 :> Inline
                                     new Run (" - ")             :> Inline
                                     new Run (f.Message)         :> Inline
