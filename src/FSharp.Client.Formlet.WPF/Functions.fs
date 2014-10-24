@@ -60,7 +60,7 @@ module internal Functions =
     let HardFail msg            = failwith msg
     let HardFail_InvalidCase () = HardFail "FSharp.Client.Formlet.WPF.ProgrammingError: This case shouldn't be reached"
 
-    let Fail<'T> (msg : string) = FormletResult.New Unchecked.defaultof<'T> [{FailureContext = []; Message = msg;}]
+    let Fail<'T> (msg : string) = FormletResult<_>.FailWith msg
     let Fail_NeverBuiltUp ()    = Fail "FSharp.Client.Formlet.WPF.ProgrammingError: Never built up"
 
     let rec LastOrDefault defaultTo ls =

@@ -41,6 +41,12 @@ module Main =
         |> Enhance.WithErrorVisual
         |> Enhance.WithLabel lbl
 
+    let LabeledOption lbl defaultValue options =
+        Input.Option -1 options
+        |> Formlet.Validate_Option defaultValue "Select an option"
+        |> Enhance.WithErrorVisual
+        |> Enhance.WithLabel lbl
+
     [<EntryPoint>]
     [<STAThread>]
     let main argv =
@@ -67,20 +73,40 @@ module Main =
             |> Enhance.Many 1
             |> Enhance.WithLegend "Addresses"
 *)
+        let empty =
+            formlet {
+                return "", None
+            }
+
+        let sweden =
+            formlet {
+                let! orgNo = LabeledText "Org no" ""
+                return orgNo, None
+            }
+
+        let norway =
+            formlet {
+                let! orgNo  = LabeledText "Org no" ""
+                let! mva    = LabeledText "MVA" ""
+                return orgNo, Some mva
+            }
+
+        let companyInfo =
+            let options = LabeledOption "Country" empty [|"Sweden", sweden; "Norway", norway|]
+            formlet {
+                let! country    = options
+                let! name       = LabeledText   "Name"      ""
+                let! orgNo, mva = country
+                return name, orgNo, mva
+            }
+            |> Enhance.WithLegend "Company info"
+
         let f =
             formlet {
                 let! firstName, lastName, birthDate = person
-                let! address    = address
-                let! country    = LabeledText "Country" "SWEDEN"
-                let! soc        =
-                    if country = "SWEDEN" then
-                        LabeledText "This is sweden" "41767"
-                    elif country = "FINLAND" then
-                        FormletMonad.Return "N/A"
-                    else
-                        LabeledText "This is something else" "XXX"
-                let! salary     = LabeledInteger "Salary" 0
-                return firstName, lastName, address, birthDate, country, soc, salary
+                let! address                        = address
+                let! name, orgNo, mva               = companyInfo
+                return firstName, lastName, address, birthDate, name, orgNo, mva
             }
 
         let f2 =
@@ -104,6 +130,15 @@ module Main =
                 let! street = LabeledText       "Street"    "Test"
                 let! country= LabeledText       "Country"   "SWEDEN"
                 return street, country
+            }
+
+        let f4 =
+            let options = LabeledOption "Country" empty [|"Sweden", sweden; "Norway", norway|]
+            formlet {
+                let! country    = options
+                let! name       = LabeledText   "Name"      ""
+                let! orgNo, mva = country
+                return name, orgNo, mva
             }
 
         let cf = f |> Enhance.WithErrorSummary

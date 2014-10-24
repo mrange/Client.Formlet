@@ -271,6 +271,46 @@ module internal Controls =
 
                 this.ChangeNotifier ()
 
+    type InputOptionElement<'T>(initial : int, options : (string * 'T) []) as this =
+        inherit ComboBox()
+
+        let itemSource              = new ObservableCollection<ComboBoxItem> ()
+        let mutable selectedIndex   = -1
+
+        do
+            this.Margin         <- DefaultMargin
+            this.ItemsSource    <- itemSource
+
+            for i in 0..options.Length - 1 do
+                let t,_     = options.[i]
+                let tb      = new TextBlock ()
+                tb.Text     <- t
+                let cbi     = new ComboBoxItem ()
+                cbi.Content <- tb
+                itemSource.Add (cbi)
+
+            selectedIndex       <- min initial (options.Length - 1)
+            this.SelectedIndex  <- selectedIndex
+
+        member val ChangeNotifier = EmptyChangeNotification with get, set
+
+        member this.SelectedOption: 'T option =
+            let i           = this.SelectedIndex
+            let hasValue    = i > - 1 && i < options.Length
+            if hasValue then
+                let _,v = options.[i]
+                Some v
+            else None
+
+        override this.OnSelectionChanged(e) =
+            base.OnSelectionChanged(e)
+            let i = this.SelectedIndex
+            if selectedIndex <> i then
+                selectedIndex <- i
+
+                this.ChangeNotifier ()
+
+    // TODO: Raise ChangeNotification on changes
     type ManyElement(value : StackPanel) as this =
         inherit DecoratorElement(value)
 
@@ -402,7 +442,7 @@ module internal Controls =
         member this.Failures
             with get ()                             = failures
             and  set (value : FormletFailure list)  =
-                failures <- value |> List.rev   // TODO: Distinct?               
+                failures <- value |> List.rev   // TODO: Distinct?
                 CommandManager.InvalidateRequerySuggested()
                 label.Inlines.Clear ()
                 let inlines =

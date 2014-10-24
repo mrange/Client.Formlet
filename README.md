@@ -42,7 +42,7 @@ let f =
     formlet {
         let! firstName, lastName, birthDate = person
         let! address                        = address
-        return firstName, lastName, address, 
+        return firstName, lastName, address,
     }
     |> Enhance.WithErrorSummary
 
@@ -63,7 +63,7 @@ let f =
         let! orgNo      = LabeledText "Org no"  ""
         let! mva        =
             // In Norway a company needs to have an MVA number in addition to the OrgNo
-            if country = "NORWAY" then  
+            if country = "NORWAY" then
                 LabeledText "MVA" ""
             else
                 FormletMonad.Return "N/A"
@@ -74,17 +74,54 @@ let f =
 
 If country is "NORWAY" the MVA input textbox is shown, otherwise not.
 
+A slightly more interesting example involves the Option input:
+
+```fsharp
+let empty =
+    formlet {
+        return "", None
+    }
+
+let sweden =
+    formlet {
+        let! orgNo = LabeledText "Org no" ""
+        return orgNo, None
+    }
+
+let norway =
+    formlet {
+        let! orgNo  = LabeledText "Org no" ""
+        let! mva    = LabeledText "MVA" ""
+        return orgNo, Some mva
+    }
+
+let companyInfo =
+    let options = LabeledOption "Country" empty [|"Sweden", sweden; "Norway", norway|]
+    formlet {
+        let! name       = LabeledText   "Name"      ""
+        // The user selects an option that evaluates into a formlet
+        let! country    = options
+        // This invokes the selected formlet presenting the user a different
+        // form depending on the selected option
+        // This is just mind-boggling cool and succinct
+        let! orgNo, mva = country
+        return name, orgNo, mva
+    }
+    |> Enhance.WithLegend "Company info"
+```
+
+
 
 Extensibility
 -------------
 
-It's very important to have an extensibility story and FSharp.Client.Formlet is designed to not be locked into to a special platform. 
+It's very important to have an extensibility story and FSharp.Client.Formlet is designed to not be locked into to a special platform.
 
 Obviously the various adaptations are tied to a platform but the core is agnostic.
 
-In addition, it shall be possible for a user of FSharp.Client.Formlet to extend with custom formlets that combines like the other formlets. 
+In addition, it shall be possible for a user of FSharp.Client.Formlet to extend with custom formlets that combines like the other formlets.
 
-It's preferable if creating a formlet isn't overly hard. 
+It's preferable if creating a formlet isn't overly hard.
 
 Example of the basic text input formlet
 ---------------------------------------
