@@ -42,7 +42,7 @@ let f =
     formlet {
         let! firstName, lastName, birthDate = person
         let! address                        = address
-        return firstName, lastName, address, 
+        return firstName, lastName, address,
     }
     |> Enhance.WithErrorSummary
 
@@ -63,7 +63,7 @@ let f =
         let! orgNo      = LabeledText "Org no"  ""
         let! mva        =
             // In Norway a company needs to have an MVA number in addition to the OrgNo
-            if country = "NORWAY" then  
+            if country = "NORWAY" then
                 LabeledText "MVA" ""
             else
                 FormletMonad.Return "N/A"
@@ -78,13 +78,13 @@ If country is "NORWAY" the MVA input textbox is shown, otherwise not.
 Extensibility
 -------------
 
-It's very important to have an extensibility story and FSharp.Client.Formlet is designed to not be locked into to a special platform. 
+It's very important to have an extensibility story and FSharp.Client.Formlet is designed to not be locked into to a special platform.
 
 Obviously the various adaptations are tied to a platform but the core is agnostic.
 
-In addition, it shall be possible for a user of FSharp.Client.Formlet to extend with custom formlets that combines like the other formlets. 
+In addition, it shall be possible for a user of FSharp.Client.Formlet to extend with custom formlets that combines like the other formlets.
 
-It's preferable if creating a formlet isn't overly hard. 
+It's preferable if creating a formlet isn't overly hard.
 
 Example of the basic text input formlet
 ---------------------------------------

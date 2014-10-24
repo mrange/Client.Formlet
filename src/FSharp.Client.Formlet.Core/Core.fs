@@ -88,7 +88,7 @@ type FormletLayout =
 ///  Adaptations iterate over the FormletTree and build the actual visual
 ///  As Forms should preserve even when the FormletTree changes the FormletTree
 ///  the FormletTree carries the essential input and adorner visuals
-///  When an adaptation builds the visual it's important to try reuse the 
+///  When an adaptation builds the visual it's important to try reuse the
 ///  visuals the form tree provides
 ///  An adaptation may inject additional other visual elements as neeeded.
 type FormletTree<'Element when 'Element : not struct> =
@@ -98,13 +98,13 @@ type FormletTree<'Element when 'Element : not struct> =
     /// An adorner element that contains a FormletTree, an example can be Label visual
     | Adorner   of 'Element*IList<'Element>*FormletTree<'Element>
     /// An element that represents a visual that replicates a FormLet any number of times
-    ///  For instance this could be order rows in an order 
+    ///  For instance this could be order rows in an order
     | Many      of 'Element*IList<FormletTree<'Element>>
     /// Modifies the layout recursively for this FormletTree
     | Layout    of FormletLayout*FormletTree<'Element>
     /// Joins two FormletTrees, this is typically the result of the Bind operation in the Formlet Monad
     | Fork      of FormletTree<'Element>*FormletTree<'Element>
-    /// Modifies an visual element, for instance can be used to add error visual 
+    /// Modifies an visual element, for instance can be used to add error visual
     ///  if the result contained failures
     | Modify    of ('Element->unit)*FormletTree<'Element>
     /// Names a FormletTree, used to prevent unintentional reuse of the FormletTree state
@@ -173,7 +173,7 @@ type Formlet<'Context, 'Element, 'T when 'Context : not struct and 'Context :> I
     ///  formletTree        - The existing formletTree, the evaluator is expected to compare the input formlet tree
     ///                       with what it expects. If it matches the input should be modified as necessary, otherwise
     ///                       a new element should be recreated. This is important to retain the state of the Form
-    ///                       For example: If the Formlet expects the input to be an Element of a TextBox, the formlet 
+    ///                       For example: If the Formlet expects the input to be an Element of a TextBox, the formlet
     ///                       tests for this. If it matches the TextBox is modified if necessary, otherwise a new one
     ///                       is created an initialized
     member this.Evaluate    = this.Evaluator
@@ -230,7 +230,9 @@ module FormletMonad =
 
         New eval
 
-    let Run (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> = Cache f
+    // TODO: I want to Cache here but the trivial attempt don't work with slightly more
+    // complex formlets where a formlet returns a formlet that is later resolved
+    let Run (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> = f
 
     [<Sealed>]
     type FormletBuilder () =
@@ -251,8 +253,8 @@ module Formlet =
 
     /// Map maps the value of a Formlet from one type into another type
     let Map (m : 'T -> 'U) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'U> =
-        let m2 collect = { Value = m collect.Value ; Failures = collect.Failures; }
-        MapResult m2 f
+        let im result = FormletResult.New (m result.Value) result.Failures
+        MapResult im f
 
     /// Layout modifies the layout of the FormTree
     let Layout (fl : FormletLayout) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
@@ -288,7 +290,7 @@ module Formlet =
 
         FormletMonad.New eval
 
-    /// Validates the result against a validator function. If the validator returns Some text then 
+    /// Validates the result against a validator function. If the validator returns Some text then
     /// this is displayed to the user
     let Validate (validator : 'T -> string option) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
         let eval (fc,cl,ft) =
@@ -309,6 +311,14 @@ module Formlet =
     /// Validates that the result matches a Regex
     let Validate_Regex (r : Regex) (msg : string) (f : Formlet<'Context, 'Element, string>) : Formlet<'Context, 'Element, string> =
         Validate (fun s -> if r.IsMatch s then None else Some msg) f
+
+    /// Validate_Optionmaps 'T option to 'T
+    let Validate_Option (defaultValue : 'T) (msg : string) (f : Formlet<'Context, 'Element, 'T option>) : Formlet<'Context, 'Element, 'T> =
+        let m result =
+            match result.Value with
+            | Some v    -> FormletResult.New v result.Failures
+            | _         -> FormletResult.New defaultValue ((FormletFailure.New [] msg)::result.Failures)
+        MapResult m f
 
 [<AutoOpen>]
 module FormletAutoOpen =

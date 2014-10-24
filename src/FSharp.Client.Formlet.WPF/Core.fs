@@ -46,7 +46,7 @@ module Input =
                 if Int32.TryParse (collect.Value, &i) then
                     FormletResult.Success i
                 else
-                    FormletResult<_>.FailWith "Input is not an integer"
+                    FormletResult<_>.FailWith "Input is not an integer"    // TODO: Localization
         Text (v.ToString())
         |> Formlet.MapResult map
         |> FormletMonad.Cache
@@ -64,11 +64,31 @@ module Input =
             let c =
                 match dt with
                 | Some d    -> FormletResult.Success d
-                | _         -> FormletResult<_>.FailWith "Select a date"
+                | _         -> FormletResult<_>.FailWith "Select a date"    // TODO: Localization
 
             c, Element (e :> UIElement)
 
         FormletMonad.New eval
+
+    let Option (initial : int) (options : (string * 'T) []) : Formlet<FormletContext, UIElement, 'T option> =
+        let eval (fc,cl,ft : FormletTree<UIElement>) =
+            let e =
+                match ft with
+                | Element (:? InputOptionElement<'T> as e)-> e
+                | _                                 ->
+                    new InputOptionElement<'T> (initial, options)
+            e.ChangeNotifier <- cl
+
+            let option = e.SelectedOption
+            let c =
+                match option with
+                | Some o    -> FormletResult.Success option
+                | _         -> FormletResult<_>.New option [FormletFailure.New [] "Select an option"] // TODO: Localization
+
+            c, Element (e :> UIElement)
+
+        FormletMonad.New eval
+
 
 module Enhance =
 
