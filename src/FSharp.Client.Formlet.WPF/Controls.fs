@@ -291,10 +291,10 @@ module internal Controls =
 
             selectedIndex       <- min initial (options.Length - 1)
             this.SelectedIndex  <- selectedIndex
-                          
+
         member val ChangeNotifier = EmptyChangeNotification with get, set
 
-        member this.SelectedOption: 'T option =   
+        member this.SelectedOption: 'T option =
             let i           = this.SelectedIndex
             let hasValue    = i > - 1 && i < options.Length
             if hasValue then
@@ -302,7 +302,7 @@ module internal Controls =
                 Some v
             else None
 
-        override this.OnSelectionChanged(e) = 
+        override this.OnSelectionChanged(e) =
             base.OnSelectionChanged(e)
             let i = this.SelectedIndex
             if selectedIndex <> i then
@@ -442,7 +442,7 @@ module internal Controls =
         member this.Failures
             with get ()                             = failures
             and  set (value : FormletFailure list)  =
-                failures <- value |> List.rev   // TODO: Distinct?               
+                failures <- value |> List.rev   // TODO: Distinct?
                 CommandManager.InvalidateRequerySuggested()
                 label.Inlines.Clear ()
                 let inlines =
