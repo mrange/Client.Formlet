@@ -74,6 +74,43 @@ let f =
 
 If country is "NORWAY" the MVA input textbox is shown, otherwise not.
 
+A slightly more interesting example involves the Option input:
+
+```fsharp
+let empty =
+    formlet {
+        return "", None
+    }
+
+let sweden =
+    formlet {
+        let! orgNo = LabeledText "Org no" ""
+        return orgNo, None
+    }
+
+let norway =
+    formlet {
+        let! orgNo  = LabeledText "Org no" ""
+        let! mva    = LabeledText "MVA" ""
+        return orgNo, Some mva
+    }
+
+let companyInfo =
+    let options = LabeledOption "Country" empty [|"Sweden", sweden; "Norway", norway|]
+    formlet {
+        let! name       = LabeledText   "Name"      ""
+        // The user selects an option that evaluates into a formlet
+        let! country    = options
+        // This invokes the selected formlet presenting the user a different
+        // form depending on the selected option
+        // This is just mind-boggling cool and succinct
+        let! orgNo, mva = country
+        return name, orgNo, mva
+    }
+    |> Enhance.WithLegend "Company info"
+```
+
+
 
 Extensibility
 -------------
