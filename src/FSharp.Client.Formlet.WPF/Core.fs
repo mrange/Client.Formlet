@@ -35,7 +35,7 @@ module Input =
             e.ChangeNotifier <- cl
             (FormletResult.Success e.Text), Element (e :> UIElement)
 
-        Formlet.New eval
+        FormletMonad.New eval
 
     let Integer v =
         let map (collect : FormletResult<string>) : FormletResult<int> =
@@ -68,7 +68,7 @@ module Input =
 
             c, Element (e :> UIElement)
 
-        Formlet.New eval
+        FormletMonad.New eval
 
 module Enhance =
 
@@ -113,7 +113,7 @@ module Enhance =
             le.Text <- l
             c.AddContext l, Adorner (le :> UIElement, list, nift)
 
-        Formlet.New eval
+        FormletMonad.New eval
 
 
     let WithErrorVisual (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
@@ -126,7 +126,7 @@ module Enhance =
             let apply   = if c.HasFailures then AppendErrorAdorner else RemoveErrorAdorner
             c, Modify (apply, nift)
 
-        Formlet.New eval
+        FormletMonad.New eval
 
     let WithLegend (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
@@ -143,7 +143,7 @@ module Enhance =
             le.Text <- l
             c.AddContext l, Adorner (le :> UIElement, list, nift)
 
-        Formlet.New eval
+        FormletMonad.New eval
 
     let WithErrorSummary (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
@@ -160,4 +160,4 @@ module Enhance =
             ese.Failures <- c.Failures
             c, Adorner (ese :> UIElement, list, nift)
 
-        Formlet.New eval
+        FormletMonad.New eval
