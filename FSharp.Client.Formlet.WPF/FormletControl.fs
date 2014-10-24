@@ -124,8 +124,6 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
             c   // TODO: Should map be applied to last, first or all?
         | Group (_, ft)         ->
             buildTree collection position fl ft
-        | Tag (_, ft)           ->
-            buildTree collection position fl ft
         | Cache (_, ft)         ->
             buildTree collection position fl ft
 

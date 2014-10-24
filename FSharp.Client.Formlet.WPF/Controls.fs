@@ -402,7 +402,7 @@ module internal Controls =
         member this.Failures
             with get ()                             = failures
             and  set (value : FormletFailure list)  =
-                failures <- value |> List.rev
+                failures <- value |> List.rev   // TODO: Distinct?               
                 CommandManager.InvalidateRequerySuggested()
                 label.Inlines.Clear ()
                 let inlines =

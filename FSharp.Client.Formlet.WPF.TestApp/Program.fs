@@ -26,7 +26,7 @@ module Main =
 
     let LabeledText lbl text =
         Input.Text text
-        |> Formlet.Validate_NonEmpty
+        |> Formlet.Validate_NonEmpty "Value must not be empty"
         |> Enhance.WithErrorVisual
         |> Enhance.WithLabel lbl
 
@@ -76,7 +76,7 @@ module Main =
                     if country = "SWEDEN" then
                         LabeledText "This is sweden" "41767"
                     elif country = "FINLAND" then
-                        Formlet.Return "N/A"
+                        FormletMonad.Return "N/A"
                     else
                         LabeledText "This is something else" "XXX"
                 let! salary     = LabeledInteger "Salary" 0
@@ -91,7 +91,7 @@ module Main =
                     if country = "SWEDEN" then
                         LabeledText "Post no" "41767"
                     elif country = "FINLAND" then
-                        Formlet.Return "N/A"
+                        FormletMonad.Return "N/A"
                     else
                         LabeledText "ZIP" ""
                 let! city   = LabeledText       "City"      ""

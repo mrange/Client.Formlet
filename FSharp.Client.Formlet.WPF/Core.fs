@@ -33,23 +33,23 @@ module Input =
                 | _                                 ->
                     new InputTextElement(initialText)
             e.ChangeNotifier <- cl
-            (FormletCollect.Success e.Text), Element (e :> UIElement)
+            (FormletResult.Success e.Text), Element (e :> UIElement)
 
         Formlet.New eval
 
     let Integer v =
-        let map (collect : FormletCollect<string>) : FormletCollect<int> =
+        let map (collect : FormletResult<string>) : FormletResult<int> =
             if collect.HasFailures then
-                FormletCollect.New 0 collect.Failures
+                FormletResult.New 0 collect.Failures
             else
                 let mutable i = 0
                 if Int32.TryParse (collect.Value, &i) then
-                    FormletCollect.Success i
+                    FormletResult.Success i
                 else
-                    FormletCollect<_>.FailWith "Input is not an integer"
+                    FormletResult<_>.FailWith "Input is not an integer"
         Text (v.ToString())
         |> Formlet.MapResult map
-        |> Formlet.Cache
+        |> FormletMonad.Cache
 
     let DateTime (initialDateTime : DateTime option) : Formlet<FormletContext, UIElement, DateTime> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
@@ -63,8 +63,8 @@ module Input =
             let dt = e.DateTime
             let c =
                 match dt with
-                | Some d    -> FormletCollect.Success d
-                | _         -> FormletCollect<_>.FailWith "Select a date"
+                | Some d    -> FormletResult.Success d
+                | _         -> FormletResult<_>.FailWith "Select a date"
 
             c, Element (e :> UIElement)
 
@@ -94,7 +94,7 @@ module Enhance =
                 c.[i] <- cs.[i].Value
                 fs.AddRange cs.[i].Failures
 
-            FormletCollect.New c (fs |> Seq.toList), Adorner (me :> UIElement, list, nifts)
+            FormletResult.New c (fs |> Seq.toList), Adorner (me :> UIElement, list, nifts)
 
         Formlet.New eval
 *)
