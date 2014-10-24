@@ -253,7 +253,11 @@ module Formlet =
 
     /// Map maps the value of a Formlet from one type into another type
     let Map (m : 'T -> 'U) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'U> =
-        let im result = FormletResult.New (m result.Value) result.Failures
+        let im (result : FormletResult<_>) =
+            if result.HasFailures then
+                FormletResult<_>.Failure result.Failures
+            else
+                FormletResult.Success (m result.Value)
         MapResult im f
 
     /// Layout modifies the layout of the FormTree
@@ -315,9 +319,9 @@ module Formlet =
     /// Validate_Optionmaps 'T option to 'T
     let Validate_Option (defaultValue : 'T) (msg : string) (f : Formlet<'Context, 'Element, 'T option>) : Formlet<'Context, 'Element, 'T> =
         let m result =
-            match result.Value with
-            | Some v    -> FormletResult.New v result.Failures
-            | _         -> FormletResult.New defaultValue ((FormletFailure.New [] msg)::result.Failures)
+            match result.Value, result.Failures with
+            | Some v, []-> FormletResult.Success v
+            | _     , fs-> FormletResult.New defaultValue ((FormletFailure.New [] msg)::fs)
         MapResult m f
 
 [<AutoOpen>]
