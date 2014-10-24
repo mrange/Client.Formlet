@@ -8,9 +8,9 @@ WebSharper demonstrated how powerful a, so called, Formlet can be to represent a
 WebSharper impressed so much that we think Formlets are the current best way to represent interactive forms in F#.
 
 Formlets are awesome because:
-1. They are functionally idiomatic, that means they feel right in a functional language such as F#
-2. They are endlessly composable. That means any formlet can be combined with any other formlet to produce a new formlet.
-3. Using formlets it's trivial to create highly interactive forms.
+* They are functionally idiomatic, that means they feel right in a functional language such as F#
+* They are endlessly composable. That means any formlet can be combined with any other formlet to produce a new formlet.
+* Using formlets it's trivial to create highly interactive forms.
 
 Example
 -------
