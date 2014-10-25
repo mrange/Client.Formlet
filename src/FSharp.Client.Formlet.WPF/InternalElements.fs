@@ -30,7 +30,7 @@ open FSharp.Client.Formlet.Core
 
 open Elements
 
-module internal Controls =
+module internal InternalElements =
 
     type SymbolElement(layers : (string*double*Brush*Typeface) array) =
         inherit FrameworkElement()
@@ -55,13 +55,11 @@ module internal Controls =
                 let p = Point ((rs.Width - formattedText.Width) / 2.0, (rs.Height - formattedText.Height) / 2.0)
                 drawingContext.DrawText (formattedText, p)
 
-    type ContainerElement () as this =
+    type LayoutElement () as this =
         inherit FormletElement ()
 
         let mutable vertical            = true
         let mutable expandLast          = true
-        let mutable duplicateDetector   = HashSet<UIElement> ()
-        let mutable existing            = HashSet<UIElement> ()
 
         let children                    = ResizeArray<UIElement>()
 
@@ -109,7 +107,7 @@ module internal Controls =
                 invalidate ()
 
             member this.Item
-                with get(index)         = children.[index]
+                with get(index)     = children.[index]
                 and  set(index)(e)  =
                     let existing = get index
                     if not (Object.ReferenceEquals (existing, e)) then
@@ -121,7 +119,7 @@ module internal Controls =
             member this.GetEnumerator ()    = children.GetEnumerator () :> IEnumerator<UIElement>
             member this.GetEnumerator()     = children.GetEnumerator () :> IEnumerator
 
-        member x.Orientation
+        member this.Orientation
             with get ()     =
                 if vertical then TopToBottom
                 else LeftToRight
@@ -131,7 +129,7 @@ module internal Controls =
                 | true , LeftToRight    -> vertical <- o = TopToBottom; invalidate ()
                 | _                     -> ()
 
-        member x.ExpandLast
+        member this.ExpandLast
             with get ()     = expandLast
             and  set e      =
                 match expandLast, e with
@@ -190,7 +188,7 @@ module internal Controls =
 
     // TODO: Make label text selectable, using TextBox is an easy way to do this.
     type LabelElement (labelWidth : double) as this =
-        inherit ContainerElement ()
+        inherit LayoutElement ()
 
         let mutable formattedText   = FormatText "Label" DefaultTypeFace 12. DefaultForegroundBrush
         let origin = Point(2.,4.)
@@ -274,7 +272,7 @@ module internal Controls =
     type InputOptionElement<'T>(initial : int, options : (string * 'T) []) as this =
         inherit ComboBox()
 
-        let itemSource              = new ObservableCollection<ComboBoxItem> ()
+        let itemSource              = ObservableCollection<ComboBoxItem> ()
         let mutable selectedIndex   = -1
 
         do
@@ -283,9 +281,9 @@ module internal Controls =
 
             for i in 0..options.Length - 1 do
                 let t,_     = options.[i]
-                let tb      = new TextBlock ()
+                let tb      = TextBlock ()
                 tb.Text     <- t
-                let cbi     = new ComboBoxItem ()
+                let cbi     = ComboBoxItem ()
                 cbi.Content <- tb
                 itemSource.Add (cbi)
 
@@ -310,52 +308,190 @@ module internal Controls =
 
                 this.ChangeNotifier ()
 
-    // TODO: Raise ChangeNotification on changes
-    type ManyElement(value : StackPanel) as this =
-        inherit DecoratorElement(value)
+    type FormletListBoxItem () as this =
+        inherit ListBoxItem ()
 
-        let inner = ObservableCollection<UIElement> ()
-        let listBox, buttons, newButton, deleteButton = CreateManyElements this.CanExecuteNew this.ExecuteNew this.CanExecuteDelete this.ExecuteDelete
+        static let pen      = CreatePen DefaultBorderBrush 1.0
+        static let typeFace = DefaultTypeFace
+
+        static let transform =
+            let transform = Matrix.Identity
+            transform.Rotate 90.0
+            transform.Translate (DefaultListBoxItemPadding.Left + 5.0, 4.0)
+            MatrixTransform (transform)
+
+        let mutable formattedText = Unchecked.defaultof<FormattedText>
+        let mutable lastIndex = -1
 
         do
-            listBox.ItemsSource <- inner
-            ignore <| value.Children.Add buttons
-            ignore <| value.Children.Add listBox
+            this.HorizontalContentAlignment <- HorizontalAlignment.Stretch
+            this.Padding <- DefaultListBoxItemPadding
 
-        new () =
-            new ManyElement (CreateStackPanel Orientation.Vertical)
+        override this.OnPropertyChanged (e) =
+            base.OnPropertyChanged e
+            if e.Property = ListBox.AlternationIndexProperty then
+                this.InvalidateVisual ()
+
+        override this.OnRender (drawingContext) =
+
+            let index = ListBox.GetAlternationIndex (this)
+            if index <> lastIndex || formattedText = null then
+                let text  = (index + 1).ToString("000", DefaultCulture)
+                formattedText <- FormatText
+                    text
+                    typeFace
+                    24.0
+                    DefaultBackgroundBrush
+                lastIndex <- index
+
+            let rs = this.RenderSize
+
+            let rect = Rect (0.0, 0.0, this.Padding.Left, rs.Height)
+
+            drawingContext.DrawRectangle (DefaultBorderBrush, null, rect)
+
+            let p0 = Point (0.0, rs.Height)
+            let p1 = Point (rs.Width, rs.Height)
+            drawingContext.DrawLine (pen, p0, p1)
+
+            drawingContext.PushTransform transform
+
+            drawingContext.DrawText (formattedText, Point (0.0, 0.0))
+
+            drawingContext.Pop ()
+
+    type FormletElement () =
+        inherit LayoutElement ()
+
+        member val FormletTree : FormletTree<UIElement> = Empty with get,set
+
+    type AdornersAdapter(adorners : ObservableCollection<FormletElement>) =
+
+        let enumerator : seq<IList<UIElement>*FormletTree<UIElement>> =
+            seq {
+                for adorner in adorners do
+                    yield adorner.ChildCollection, adorner.FormletTree
+            }
+
+        interface IReadOnlyList<IList<UIElement>*FormletTree<UIElement>> with
+            member this.Count       = adorners.Count
+
+            member this.Item
+                with get(index)     =
+                    let adorner = adorners.[index]
+                    adorner.ChildCollection, adorner.FormletTree
+
+            member this.GetEnumerator ()    = enumerator.GetEnumerator ()
+            member this.GetEnumerator()     = enumerator.GetEnumerator () :> IEnumerator
+
+        member this.SetFormletTree (i, ft)     =
+            let adorner = adorners.[i]
+            adorner.FormletTree <- ft
+
+    type FormletListBox (initialCount : int) as this =
+        inherit ListBox ()
+
+        let adorners    = ObservableCollection<FormletElement> ()
+        let adapter     = AdornersAdapter adorners
+
+        let addNew ()   = adorners.Add (FormletElement ())
+
+        do
+            this.AlternationCount   <- Int32.MaxValue
+            this.ItemsSource        <- adorners
+            for i = 0 to initialCount - 1 do
+                addNew ()
+
+        override this.GetContainerForItemOverride () = FormletListBoxItem () :> DependencyObject
 
         member val ChangeNotifier = EmptyChangeNotification with get, set
 
-        member this.ExecuteNew ()   =   inner.Add null
-                                        this.ChangeNotifier ()
-        member this.CanExecuteNew ()=   true
+        member this.Adorners                = adapter
 
-        member this.ExecuteDelete ()=   let selectedItems = listBox.SelectedItems
-                                        let selection = Array.create selectedItems.Count (null :> UIElement)
-                                        for i in 0..selectedItems.Count - 1 do
-                                            selection.[i] <- selectedItems.[i] :?> UIElement
+        member this.CanAddNew ()            = true
+        member this.AddNew ()               =
+            addNew ()
+            this.ChangeNotifier ()
 
-                                        for i in selectedItems.Count - 1..-1..0 do
-                                            ignore <| inner.Remove(selection.[i])
+        member this.CanDeleteSelection ()   = this.SelectedItems.Count > 0
+        member this.DeleteSelection ()      =
+            let selectedItems = this.SelectedItems
+            let selection = Array.zeroCreate selectedItems.Count
+            for i = 0 to selectedItems.Count - 1 do
+                selection.[i] <- selectedItems.IndexOf selectedItems.[i]
 
-                                        this.ChangeNotifier ()
+            Array.Sort selection
 
-        member this.CanExecuteDelete () = listBox.SelectedItems.Count > 0
+            for i = selection.Length - 1 downto 0 do
+                ignore <| adorners.RemoveAt (selection.[i])
 
-        member this.ChildCollection = inner
+            this.ChangeNotifier ()
+
+    let CreateFormletListBox initialCount =
+        let listBox             = FormletListBox initialCount
+        listBox.Margin          <- DefaultMargin
+        listBox.SelectionMode   <- SelectionMode.Extended
+        listBox.MinHeight       <- 24.0
+        listBox.MaxHeight       <- 240.0
+        ScrollViewer.SetVerticalScrollBarVisibility(listBox, ScrollBarVisibility.Visible)
+        ScrollViewer.SetHorizontalScrollBarVisibility(listBox, ScrollBarVisibility.Disabled)
+        listBox
+
+    let CreateManyElements initialCount : FormletListBox*IReadOnlyList<IList<UIElement>*FormletTree<UIElement>>*Panel =
+        let listBox         = CreateFormletListBox initialCount
+
+        let buttons         = CreateStackPanel Orientation.Horizontal
+        // TODO: Localization
+        let newButton       = CreateButton "_New" "Click to create another item" listBox.CanAddNew listBox.AddNew
+        let deleteButton    = CreateButton "_Delete" "Click to delete the currently selected items" listBox.CanDeleteSelection listBox.DeleteSelection
+        ignore <| buttons.Children.Add newButton
+        ignore <| buttons.Children.Add deleteButton
+        listBox, upcast listBox.Adorners, upcast buttons
+
+    type ManyElement(initialCount : int, value : StackPanel) =
+        inherit DecoratorElement(value)
+
+        let listBox, adorners, buttons = CreateManyElements initialCount
+
+        do
+            ignore <| value.Children.Add buttons
+            ignore <| value.Children.Add listBox
+
+        new (initialCount : int) =
+            ManyElement (initialCount, CreateStackPanel Orientation.Vertical)
+
+        member this.ChildCollection = adorners
+
+        member this.ChangeNotifier
+            with get () = listBox.ChangeNotifier
+            and  set c  = listBox.ChangeNotifier <- c
+
+    let CreateLegendElements t : UIElement*TextBox*Decorator =
+        let label               = CreateLabelTextBox t
+        label.Background        <- DefaultBackgroundBrush
+        label.RenderTransform   <- TranslateTransform (8.0, -6.0)
+        label.FontSize          <- 16.0
+        let border              = Border ()
+        let outer               = Grid ()
+        border.Margin           <- DefaultBorderMargin
+        border.Padding          <- DefaultBorderPadding
+        border.BorderThickness  <- DefaultBorderThickness
+        border.BorderBrush      <- DefaultBorderBrush
+        ignore <| outer.Children.Add(border)
+        ignore <| outer.Children.Add(label)
+        upcast outer, label, upcast border
 
     type LegendElement(outer : UIElement, label : TextBox, inner : Decorator) =
         inherit DecoratorElement(outer)
 
-        let container   = new ContainerElement ()
+        let container   = LayoutElement ()
 
         do
             inner.Child <- container
 
         new () =
             let outer, label, inner = CreateLegendElements "Group"
-            new LegendElement (outer, label, inner)
+            LegendElement (outer, label, inner)
 
         member this.Text
             with get ()                     = label.Text
@@ -378,25 +514,24 @@ module internal Controls =
         let symbolSize  = 48.0
         let largeSize   = 24.0
 
-        let container   = new ContainerElement ()
-        let border      = new Border ()
-        let grid        = new Grid ()
+        let container   = LayoutElement ()
+        let border      = Border ()
+        let grid        = Grid ()
         let stackPanel  = CreateStackPanel Orientation.Vertical
 
         let submitButton= CreateButton "_Submit" "Click to submit form" this.CanSubmit this.Submit
         let resetButton = CreateButton "_Reset" "Click to reset form"   this.CanReset this.Reset
 
-        let errorSymbol = new SymbolElement (   [|
-                                                    ("\u26CA", symbolSize       , errorSymbolBackgroundBrush, SymbolTypeFace    )
-                                                    ("\u26C9", symbolSize       , DefaultBackgroundBrush    , SymbolTypeFace    )
-                                                    ("\u2757", symbolSize / 2.0 , DefaultBackgroundBrush    , SymbolTypeFace    )
-                                                |]
-                                                )
-        let okSymbol    = new SymbolElement (   [|
-                                                    ("\u26CA", symbolSize       , okSymbolBackgroundBrush   , SymbolTypeFace    )
-                                                    ("\u26C9", symbolSize       , DefaultBackgroundBrush    , SymbolTypeFace    )
-                                                    ("\u2714", symbolSize / 2.0 , DefaultBackgroundBrush    , SymbolTypeFace    )
-                                                |])
+        let errorSymbol = SymbolElement ([|
+                                            ("\u26CA", symbolSize       , errorSymbolBackgroundBrush, SymbolTypeFace    )
+                                            ("\u26C9", symbolSize       , DefaultBackgroundBrush    , SymbolTypeFace    )
+                                            ("\u2757", symbolSize / 2.0 , DefaultBackgroundBrush    , SymbolTypeFace    )
+                                        |])
+        let okSymbol    = SymbolElement ([|
+                                            ("\u26CA", symbolSize       , okSymbolBackgroundBrush   , SymbolTypeFace    )
+                                            ("\u26C9", symbolSize       , DefaultBackgroundBrush    , SymbolTypeFace    )
+                                            ("\u2714", symbolSize / 2.0 , DefaultBackgroundBrush    , SymbolTypeFace    )
+                                        |])
         let label = CreateTextBlock ""
 
         let mutable failures = []
@@ -455,18 +590,18 @@ module internal Controls =
                             failures
                             |>  List.collect (fun f ->
                                 [
-                                    new Run (" § ")             :> Inline
-                                    new Run (f.FailureContext   |> LastOrDefault "No context"   )
+                                    Run (" § ")             :> Inline
+                                    Run (f.FailureContext   |> LastOrDefault "No context"   )
                                                                 :> Inline
-                                    new Run (" - ")             :> Inline
-                                    new Run (f.Message)         :> Inline
-                                    new LineBreak()             :> Inline
+                                    Run (" - ")             :> Inline
+                                    Run (f.Message)         :> Inline
+                                    LineBreak()             :> Inline
                                 ])
                         let full =
                             [
-                                new Run ("You can't submit because")    |?> (fun r -> r.FontSize <- largeSize)
+                                Run ("You can't submit because")    |?> (fun r -> r.FontSize <- largeSize)
                                                                         :> Inline
-                                new LineBreak()                         :> Inline
+                                LineBreak()                         :> Inline
                             ]
                             @ inlines
                         full |>  List.toArray
@@ -476,9 +611,9 @@ module internal Controls =
                         border.Background       <- okBackgroundBrush
                         border.BorderBrush      <- okBorderBrush
                         [|
-                                new Run ("Ready to submit")     |?> (fun r -> r.FontSize <- largeSize)
+                                Run ("Ready to submit")     |?> (fun r -> r.FontSize <- largeSize)
                                                                 :> Inline
-                                new LineBreak()                 :> Inline
+                                LineBreak()                 :> Inline
                         |]
                 label.Inlines.AddRange (inlines)
                 if label.Inlines.Count = 0 then

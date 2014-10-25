@@ -19,6 +19,7 @@ namespace FSharp.Client.Formlet.WPF
 open System
 open System.Collections
 open System.Collections.Generic
+open System.Collections.ObjectModel
 open System.Threading
 open System.Windows
 open System.Windows.Controls
@@ -42,7 +43,7 @@ module internal Functions =
         EventManager.RegisterRoutedEvent (name + "Event", RoutingStrategy.Bubble, typeof<RoutedEventHandler>, typeof<'TOwner>)
 
     let RaiseRoutedEvent routedEvent (sender : UIElement) =
-        let args = new RoutedEventArgs (routedEvent, sender)
+        let args = RoutedEventArgs (routedEvent, sender)
         sender.RaiseEvent args
 
     let AddRoutedEventHandler routedEvent (receiver : UIElement) (h : obj -> RoutedEventArgs -> unit) =
@@ -69,8 +70,8 @@ module internal Functions =
         |   [v]         -> v
         |   _::vs       -> LastOrDefault defaultTo vs
 
-    let EmptySize = new Size ()
-    let EmptyRect = new Rect ()
+    let EmptySize = Size ()
+    let EmptyRect = Rect ()
 
     let Arrange (vertical : bool, expand : bool, sz : Size, l : Rect, r : Size) : Rect =
         match expand,vertical with
@@ -190,7 +191,7 @@ module internal Functions =
         | _ -> Colors.Red
 
     let CreateBrush color =
-        let br = new SolidColorBrush (color)
+        let br = SolidColorBrush (color)
         br.Freeze ()
         br
 
@@ -221,7 +222,7 @@ module internal Functions =
         grid
 
     let CreatePen br th =
-        let p = new Pen (br, th)
+        let p = Pen (br, th)
         p.Freeze ()
         p
 
@@ -295,7 +296,7 @@ module internal Functions =
 
     let AppendErrorAdornerUpdater (fe : FrameworkElement, layer : AdornerLayer, adorner : ErrorVisualAdorner) =
         match adorner with
-        | null  -> layer.Add (new ErrorVisualAdorner (fe))
+        | null  -> layer.Add (ErrorVisualAdorner (fe))
         | _     -> ()
 
     let AppendErrorAdorner (e : UIElement) : unit =
@@ -310,7 +311,7 @@ module internal Functions =
         UpdateAdorner RemoveErrorAdornerUpdater e
 
     type Command(canExecute : unit -> bool, execute : unit -> unit) =
-        let canExecuteChanged           = new Event<EventHandler, EventArgs> ()
+        let canExecuteChanged   = Event<EventHandler, EventArgs> ()
 
         interface ICommand with
 
@@ -320,84 +321,13 @@ module internal Functions =
             member this.add_CanExecuteChanged(handler)      = CommandManager.RequerySuggested.AddHandler(handler)
             member this.remove_CanExecuteChanged(handler)   = CommandManager.RequerySuggested.RemoveHandler(handler)
 
-    type FormListBoxItem () as this =
-        inherit ListBoxItem ()
-
-        static let pen      = CreatePen DefaultBorderBrush 1.0
-        static let typeFace = DefaultTypeFace
-
-        static let transform =
-            let transform = Matrix.Identity
-            transform.Rotate 90.0
-            transform.Translate (DefaultListBoxItemPadding.Left + 5.0, 4.0)
-            MatrixTransform (transform)
-
-        let mutable formattedText = Unchecked.defaultof<FormattedText>
-        let mutable lastIndex = -1
-
-        do
-            this.HorizontalContentAlignment <- HorizontalAlignment.Stretch
-            this.Padding <- DefaultListBoxItemPadding
-
-        override this.OnPropertyChanged (e) =
-            base.OnPropertyChanged e
-            if e.Property = ListBox.AlternationIndexProperty then
-                this.InvalidateVisual ()
-
-        override this.OnRender (drawingContext) =
-
-            let index = ListBox.GetAlternationIndex (this)
-            if index <> lastIndex || formattedText = null then
-                let text  = (index + 1).ToString("000", DefaultCulture)
-                formattedText <- FormatText
-                    text
-                    typeFace
-                    24.0
-                    DefaultBackgroundBrush
-                lastIndex <- index
-
-            let rs = this.RenderSize
-
-            let rect = Rect (0.0, 0.0, this.Padding.Left, rs.Height)
-
-            drawingContext.DrawRectangle (DefaultBorderBrush, null, rect)
-
-            let p0 = Point (0.0, rs.Height)
-            let p1 = Point (rs.Width, rs.Height)
-            drawingContext.DrawLine (pen, p0, p1)
-
-            drawingContext.PushTransform transform
-
-            drawingContext.DrawText (formattedText, Point (0.0, 0.0))
-
-            drawingContext.Pop ()
-
-    type FormListBox () as this =
-        inherit ListBox ()
-
-        do
-            this.AlternationCount <- Int32.MaxValue
-
-        override this.GetContainerForItemOverride () =
-            new FormListBoxItem () :> DependencyObject
-
-    let CreateListBox () =
-        let listBox             = new FormListBox() :> ListBox
-        listBox.Margin          <- DefaultMargin
-        listBox.SelectionMode   <- SelectionMode.Extended
-        listBox.MinHeight       <- 24.0
-        listBox.MaxHeight       <- 240.0
-        ScrollViewer.SetVerticalScrollBarVisibility(listBox, ScrollBarVisibility.Visible)
-        ScrollViewer.SetHorizontalScrollBarVisibility(listBox, ScrollBarVisibility.Disabled)
-        listBox
-
     let CreateStackPanel orientation =
-        let stackPanel = new StackPanel()
+        let stackPanel = StackPanel()
         stackPanel.Orientation <- orientation
         stackPanel
 
     let CreateButton t toolTip canExecute execute =
-        let button      = new Button()
+        let button      = Button()
         button.ToolTip  <- toolTip
         button.Content  <- t
         button.Margin   <- DefaultMargin
@@ -411,14 +341,14 @@ module internal Functions =
         button
 
     let CreateTextBlock t =
-        let textBlock   = new TextBlock ()
+        let textBlock   = TextBlock ()
         textBlock.Text  <- t
         textBlock.Margin<- DefaultMargin
         textBlock
 
 
     let CreateTextBox t =
-        let textBox     = new TextBox ()
+        let textBox     = TextBox ()
         textBox.Text    <- t
         textBox.Margin  <- DefaultMargin
         textBox
@@ -428,47 +358,23 @@ module internal Functions =
         label.IsReadOnly            <- true
         label.IsTabStop             <- false
         label.Background            <- Brushes.Transparent
-        label.BorderThickness       <- new Thickness 0.0
+        label.BorderThickness       <- Thickness 0.0
         label.VerticalAlignment     <- VerticalAlignment.Top
         label.HorizontalAlignment   <- HorizontalAlignment.Left
         label
-
-    let CreateManyElements canExecuteNew executeNew canExecuteDelete executeDelete : ListBox*Panel*Button*Button =
-        let buttons         = CreateStackPanel Orientation.Horizontal
-        let newButton       = CreateButton "_New" "Click to create another item" canExecuteNew executeNew
-        let deleteButton    = CreateButton "_Delete" "Click to delete the currently selected items" canExecuteDelete executeDelete
-        ignore <| buttons.Children.Add newButton
-        ignore <| buttons.Children.Add deleteButton
-        let listBox         = CreateListBox ()
-        listBox, upcast buttons, newButton, deleteButton
-
-    let CreateLegendElements t : UIElement*TextBox*Decorator =
-        let label               = CreateLabelTextBox t
-        label.Background        <- DefaultBackgroundBrush
-        label.RenderTransform   <- new TranslateTransform (8.0, -6.0)
-        label.FontSize          <- 16.0
-        let border              = new Border ()
-        let outer               = new Grid ()
-        border.Margin           <- DefaultBorderMargin
-        border.Padding          <- DefaultBorderPadding
-        border.BorderThickness  <- DefaultBorderThickness
-        border.BorderBrush      <- DefaultBorderBrush
-        ignore <| outer.Children.Add(border)
-        ignore <| outer.Children.Add(label)
-        upcast outer, label, upcast border
 
     type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (dispatcher : Dispatcher) =
         let mutable isDispatching   = false
         let queue                   = Queue<'DispatchEnum*(unit->unit)> ()
 
-        member x.Dispatch (dispatchEnum : 'DispatchEnum, action : unit->unit) =
+        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit->unit) =
             dispatcher.VerifyAccess ()
             let isAlreadyDispatching = queue |> Seq.exists (fun (de,_) -> de = dispatchEnum)
             if not isAlreadyDispatching then
                 queue.Enqueue(dispatchEnum, action)
-                x.StartDispatchIfNecessary ()
+                this.StartDispatchIfNecessary ()
 
-        member private x.StartDispatchIfNecessary () =
+        member private this.StartDispatchIfNecessary () =
             if not isDispatching && queue.Count > 0 then
                 isDispatching <- true
                 let _,action = queue.Peek ()
@@ -478,7 +384,7 @@ module internal Functions =
                     finally
                         ignore <| queue.Dequeue ()
                         isDispatching <- false
-                        x.StartDispatchIfNecessary ()
+                        this.StartDispatchIfNecessary ()
 
 
 

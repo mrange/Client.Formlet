@@ -67,12 +67,18 @@ module Main =
                 return street, zip
             }
             |> Enhance.WithLegend "Address info"
-(*
+
         let addresses =
+            let address =
+                formlet {
+                    let! street = LabeledText       "Street"    ""
+                    let! zip    = LabeledText       "Zip"       ""
+                    return street, zip
+                }
             address
             |> Enhance.Many 1
+            |> Formlet.Validate (fun vs -> if vs.Length > 0 then None else Some "At least one address is required")
             |> Enhance.WithLegend "Addresses"
-*)
         let empty =
             formlet {
                 return "", None
@@ -104,9 +110,9 @@ module Main =
         let f =
             formlet {
                 let! firstName, lastName, birthDate = person
-                let! address                        = address
+                let! addresses                      = addresses
                 let! name, orgNo, mva               = companyInfo
-                return firstName, lastName, address, birthDate, name, orgNo, mva
+                return firstName, lastName, addresses, birthDate, name, orgNo, mva
             }
 
         let f2 =

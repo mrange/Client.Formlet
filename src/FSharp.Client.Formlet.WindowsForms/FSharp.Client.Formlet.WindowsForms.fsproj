@@ -5,13 +5,13 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>95e55ae1-c58c-4ca2-bbcd-40ded409935e</ProjectGuid>
+    <ProjectGuid>c8c19fa9-7e85-4346-b96d-9ead2e139f41</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>FSharp.Client.Formlet.WPF</RootNamespace>
-    <AssemblyName>FSharp.Client.Formlet.WPF</AssemblyName>
+    <RootNamespace>FSharp.Client.Formlet.WindowsForms</RootNamespace>
+    <AssemblyName>FSharp.Client.Formlet.WindowsForms</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>FSharp.Client.Formlet.WPF</Name>
+    <Name>FSharp.Client.Formlet.WindowsForms</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +21,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\FSharp.Client.Formlet.WPF.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FSharp.Client.Formlet.WindowsForms.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,26 +30,21 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\FSharp.Client.Formlet.WPF.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\FSharp.Client.Formlet.WindowsForms.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
     </Reference>
-    <Reference Include="PresentationCore" />
-    <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Numerics" />
-    <Reference Include="System.Xaml" />
-    <Reference Include="UIAutomationTypes" />
-    <Reference Include="WindowsBase" />
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Functions.fs" />
-    <Compile Include="Elements.fs" />
-    <Compile Include="InternalElements.fs" />
+    <Compile Include="Controls.fs" />
     <Compile Include="FormletControl.fs" />
     <Compile Include="Core.fs" />
   </ItemGroup>

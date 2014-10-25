@@ -5,13 +5,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>95e55ae1-c58c-4ca2-bbcd-40ded409935e</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>FSharp.Client.Formlet.WPF</RootNamespace>
-    <AssemblyName>FSharp.Client.Formlet.WPF</AssemblyName>
+    <ProjectGuid>1722beee-03ea-44b7-afd5-0c1adb1174d8</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FSharp.Client.Formlet.WindowsForms.TestApp</RootNamespace>
+    <AssemblyName>FSharp.Client.Formlet.WindowsForms.TestApp</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>FSharp.Client.Formlet.WPF</Name>
+    <Name>FSharp.Client.Formlet.WindowsForms.TestApp</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +22,9 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\FSharp.Client.Formlet.WPF.XML</DocumentationFile>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Debug\FSharp.Client.Formlet.WindowsForms.TestApp.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,33 +33,34 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\FSharp.Client.Formlet.WPF.XML</DocumentationFile>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Release\FSharp.Client.Formlet.WindowsForms.TestApp.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
     </Reference>
-    <Reference Include="PresentationCore" />
-    <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Numerics" />
-    <Reference Include="System.Xaml" />
-    <Reference Include="UIAutomationTypes" />
-    <Reference Include="WindowsBase" />
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Functions.fs" />
-    <Compile Include="Elements.fs" />
-    <Compile Include="InternalElements.fs" />
-    <Compile Include="FormletControl.fs" />
-    <Compile Include="Core.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSharp.Client.Formlet.Core\FSharp.Client.Formlet.Core.fsproj">
       <Name>FSharp.Client.Formlet.Core</Name>
       <Project>{258228d1-a6f4-4256-bf92-d2fee5875f7e}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSharp.Client.Formlet.WindowsForms\FSharp.Client.Formlet.WindowsForms.fsproj">
+      <Name>FSharp.Client.Formlet.WindowsForms</Name>
+      <Project>{c8c19fa9-7e85-4346-b96d-9ead2e139f41}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
