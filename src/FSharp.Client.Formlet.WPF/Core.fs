@@ -120,7 +120,7 @@ module Enhance =
 
             FormletResult.New c (fs |> Seq.toList), Many (me :> UIElement, me.ChildCollection)
 
-        Formlet<_,_,_>.New eval
+        FormletMonad.New eval
 
     let WithLabel (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =

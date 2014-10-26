@@ -95,6 +95,9 @@ type FormletTree<'Element when 'Element : not struct> =
     | Empty
     /// A single element, typically this is an Input visual
     | Element   of 'Element
+    /// Repeats formlets of fixed type
+    ///  For instance this can be used to create dynamic formlets
+    | ForEach   of FormletTree<'Element> []
     /// An adorner element that contains a FormletTree, an example can be Label visual
     | Adorner   of 'Element*IList<'Element>*FormletTree<'Element>
     /// An element that represents a visual that replicates a FormLet any number of times
@@ -259,6 +262,36 @@ module Formlet =
             else
                 FormletResult.Success (m result.Value)
         MapResult im f
+
+    /// Map maps the value of a Formlet from one type into another type
+    let ForEach (fs : Formlet<'Context, 'Element, 'T>[]) : Formlet<'Context, 'Element, 'T []> =
+        let eval (fc,cl,ft) =
+            let length = fs.Length
+            let fts =
+                match ft with
+                | ForEach fts   when fts.Length = length-> fts
+                | ForEach fts                           -> 
+                    let result = Array.create length Empty
+                    Array.Copy (fts, result, min fts.Length length)
+                    result
+                | _                                     -> Array.create length Empty
+
+            let nfts    = Array.zeroCreate length
+            let cs      = Array.zeroCreate length
+            let failures= ResizeArray<_> ()
+
+            for i = 0 to length - 1 do
+                let f       = fs.[i]
+                let ft      = fts.[i]
+                let c, nft  = f.Evaluate (fc,cl,ft)
+                nfts.[i]    <- nft
+                cs.[i]      <- c.Value
+                failures.AddRange c.Failures
+
+            FormletResult.New cs (failures |> Seq.toList), ForEach nfts
+
+        FormletMonad.New eval
+
 
     /// Layout modifies the layout of the FormTree
     let Layout (fl : FormletLayout) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =

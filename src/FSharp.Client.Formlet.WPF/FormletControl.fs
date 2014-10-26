@@ -79,12 +79,19 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
         // TODO: Layout should be set
         match ft with
-        | Empty                 ->
+        | Empty ->
             setElement collection position null
             1
-        | Element e           ->
+        | Element e ->
             setElement collection position e
             1
+        | ForEach fts ->
+            let         l = fts.Length
+            let mutable p = position
+            for i = 0 to l - 1 do
+                let ft = fts.[i]
+                p <- p + buildTree collection p fl ft
+            p - position
         | Adorner (e, ls, ft) ->
             let c = buildTree ls 0 fl ft
             postProcessElements ls c
@@ -98,7 +105,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
                 postProcessElements ls c
             setElement collection position e
             1
-        | Layout (l, ft)        ->
+        | Layout (l, ft) ->
             let nl = fl.Union l
             if nl = fl then
                 buildTree collection position fl ft
@@ -111,18 +118,18 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
                 postProcessElements ls c
                 setElement collection position lay
                 1
-        | Fork (l,r)            ->
+        | Fork (l,r) ->
             let lcount = buildTree collection position fl l
             let rcount = buildTree collection (position + lcount) fl r
             lcount + rcount
-        | Modify (modifier, ft)     ->
+        | Modify (modifier, ft) ->
             let c       = buildTree collection position fl ft
             let element = getElement collection position
             modifier element
             c   // TODO: Should map be applied to last, first or all?
-        | Group (_, ft)         ->
+        | Group (_, ft) ->
             buildTree collection position fl ft
-        | Cache (_, ft)         ->
+        | Cache (_, ft) ->
             buildTree collection position fl ft
 
     let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)

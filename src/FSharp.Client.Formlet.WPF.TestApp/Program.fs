@@ -79,31 +79,41 @@ module Main =
             |> Enhance.Many 1
             |> Formlet.Validate (fun vs -> if vs.Length > 0 then None else Some "At least one address is required")
             |> Enhance.WithLegend "Addresses"
+
+        let configurations = 
+            [
+                "Sweden"    ,   ["Org No"                       ]
+                "Norway"    ,   ["Org No"   ; "MVA No"          ]
+                "Narnia"    ,   ["Aslan Pts" ; "Ice queen Pts"  ]
+            ]
+
+        let configuration (options : string list) =
+            let formlets = 
+                options 
+                |> List.map (fun option -> LabeledText option "" |> Formlet.Map (fun s -> option,s))
+                |> List.toArray
+            formlet {
+                let! result = Formlet.ForEach formlets
+                return result
+            }
+
+        let options = 
+            configurations 
+            |> List.map (fun (country, options) -> country, configuration options)
+            |> List.toArray
+
         let empty =
             formlet {
-                return "", None
-            }
-
-        let sweden =
-            formlet {
-                let! orgNo = LabeledText "Org no" ""
-                return orgNo, None
-            }
-
-        let norway =
-            formlet {
-                let! orgNo  = LabeledText "Org no" ""
-                let! mva    = LabeledText "MVA" ""
-                return orgNo, Some mva
+                return [||]
             }
 
         let companyInfo =
-            let options = LabeledOption "Country" empty [|"Sweden", sweden; "Norway", norway|]
+            let options = LabeledOption "Country" empty options
             formlet {
                 let! country    = options
                 let! name       = LabeledText   "Name"      ""
-                let! orgNo, mva = country
-                return name, orgNo, mva
+                let! values     = country
+                return name, values
             }
             |> Enhance.WithLegend "Company info"
 
@@ -111,8 +121,8 @@ module Main =
             formlet {
                 let! firstName, lastName, birthDate = person
                 let! addresses                      = addresses
-                let! name, orgNo, mva               = companyInfo
-                return firstName, lastName, addresses, birthDate, name, orgNo, mva
+                let! name, values                   = companyInfo
+                return firstName, lastName, addresses, birthDate, name, values
             }
 
         let f2 =
@@ -129,22 +139,6 @@ module Main =
                 let! city   = LabeledText       "City"      ""
 
                 return country, street, zip
-            }
-
-        let f3 =
-            formlet {
-                let! street = LabeledText       "Street"    "Test"
-                let! country= LabeledText       "Country"   "SWEDEN"
-                return street, country
-            }
-
-        let f4 =
-            let options = LabeledOption "Country" empty [|"Sweden", sweden; "Norway", norway|]
-            formlet {
-                let! country    = options
-                let! name       = LabeledText   "Name"      ""
-                let! orgNo, mva = country
-                return name, orgNo, mva
             }
 
         let cf = f |> Enhance.WithErrorSummary
