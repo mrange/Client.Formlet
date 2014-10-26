@@ -1,6 +1,8 @@
 FSharp.Client.Formlet
 =====================
 
+See my blog post on why I consider Formlets to a very important idea: https://mrange.wordpress.com/2014/10/26/building-forms-fast-using-formlets/
+
 The major inspiration for this library comes from WebSharper (https://github.com/intellifactory/websharper).
 
 WebSharper demonstrated how powerful a, so called, Formlet can be to represent an interactive form.
