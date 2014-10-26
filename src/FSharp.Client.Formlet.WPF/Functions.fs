@@ -226,6 +226,15 @@ module internal Functions =
         p.Freeze ()
         p
 
+    let ToNullable (o : 'T option) : Nullable<'T> =
+        match o with
+        | Some v    -> Nullable<_>(v)
+        | _         -> Nullable<_>()
+
+    let ToOption (n : Nullable<'T>) : 'T option =
+        if n.HasValue then Some n.Value
+        else None
+
     [<AllowNullLiteral>]
     type ErrorVisualAdorner(adornedElement) as this =
         inherit Adorner(adornedElement)

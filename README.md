@@ -66,7 +66,7 @@ let f =
             if country = "NORWAY" then
                 LabeledText "MVA" ""
             else
-                FormletMonad.Return "N/A"
+                Formlet.Return "N/A"
 
         return country, orgNo, mva
     }

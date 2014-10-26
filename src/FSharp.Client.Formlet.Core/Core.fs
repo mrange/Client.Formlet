@@ -136,6 +136,7 @@ type FormletResult<'T> =
     }
     static member New       (value : 'T) (failures : FormletFailure list) = { Value = value; Failures = failures; }
     static member Success   (value : 'T) = FormletResult.New value []
+    // TODO: Unchecked.defaultof can bring type invariants, should find a better way.
     static member Failure   (failures : FormletFailure list) = FormletResult.New Unchecked.defaultof<_> failures
     static member FailWith  (failure : string) = FormletResult<_>.Failure [FormletFailure.New [] failure]
 
@@ -183,6 +184,11 @@ type Formlet<'Context, 'Element, 'T when 'Context : not struct and 'Context :> I
 
 module FormletMonad =
     let inline New eval : Formlet<'Context, 'Element, 'T> = Formlet<_,_,_>.New eval
+
+    let Zero () : Formlet<'Context, 'Element, 'T> =
+        let eval (fc,cl,ft) = (FormletResult.Success Unchecked.defaultof<_>, Empty)
+
+        New eval
 
     let Return (v : 'T) : Formlet<'Context, 'Element, 'T> =
         let eval (fc,cl,ft) = (FormletResult.Success v, Empty)
@@ -244,14 +250,23 @@ module FormletMonad =
         member this.Delay       f       = Delay         f
         member this.ReturnFrom  f       = ReturnFrom    f
         member this.Run         f       = Run           f
+        member this.Zero        ()      = Zero          ()
 
 module Formlet =
+
+    let inline Return v = FormletMonad.Return v
+
+    let Failures (f : Formlet<'Context, 'Element, _>) : Formlet<'Context, 'Element, FormletFailure list> =
+        let eval (fc,cl,ft) =
+            let c,nft = f.Evaluate (fc,cl,ft)
+            (FormletResult.New c.Failures c.Failures), nft
+        FormletMonad.New eval
 
     /// MapResult maps the result of Formlet from one type into another type
     let MapResult (m : FormletResult<'T> -> FormletResult<'U>) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'U> =
         let eval (fc,cl,ft) =
-            let c,ift = f.Evaluate (fc,cl,ft)
-            (m c), ift
+            let c,nft = f.Evaluate (fc,cl,ft)
+            (m c), nft
         FormletMonad.New eval
 
     /// Map maps the value of a Formlet from one type into another type
@@ -270,7 +285,7 @@ module Formlet =
             let fts =
                 match ft with
                 | ForEach fts   when fts.Length = length-> fts
-                | ForEach fts                           -> 
+                | ForEach fts                           ->
                     let result = Array.create length Empty
                     Array.Copy (fts, result, min fts.Length length)
                     result
@@ -309,9 +324,9 @@ module Formlet =
     let Tag (tag : obj) (f : Formlet<'Context, 'Element, 'T>) : Formlet<'Context, 'Element, 'T> =
         let eval (fc : 'Context,cl,ft) =
             fc.PushTag tag
-            let c,nift = f.Evaluate (fc,cl,ft)
+            let c,nft = f.Evaluate (fc,cl,ft)
             fc.PopTag ()
-            c,nift
+            c,nft
 
         FormletMonad.New eval
 

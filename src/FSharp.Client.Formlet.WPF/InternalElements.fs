@@ -232,19 +232,47 @@ module internal InternalElements =
 
                 this.ChangeNotifier ()
 
+    type InputTriStateElement(initial : bool option) as this =
+        inherit CheckBox()
+
+        let mutable triState= initial
+
+        let update () =
+            let isChecked = ToOption this.IsChecked
+
+            if triState <> isChecked then
+                this.TriState <- isChecked
+
+                this.ChangeNotifier ()
+
+        do
+            this.IsChecked  <- ToNullable initial
+            this.Margin     <- DefaultMargin
+
+        member val ChangeNotifier = EmptyChangeNotification with get, set
+
+        member this.TriState
+            with    get () : bool option    = triState
+            and     set (ts : bool option)  =
+                triState         <- ts
+                this.IsChecked   <- ToNullable ts
+
+        override this.OnChecked(e) =
+            base.OnChecked(e)
+            update ()
+
+        override this.OnUnchecked(e) =
+            base.OnUnchecked(e)
+            update ()
+
     type InputDateTimeElement(initialDateTime : DateTime option) as this =
         inherit DatePicker()
 
         let mutable dateTime= initialDateTime
 
-        let getNullableDateTime (dt : DateTime option) =
-            match dt with
-            | Some d    -> Nullable<DateTime> (d)
-            | _         -> Nullable<DateTime> ()
-
         do
             this.Margin         <- DefaultMargin
-            this.SelectedDate   <- getNullableDateTime initialDateTime
+            this.SelectedDate   <- ToNullable initialDateTime
 
         member val ChangeNotifier = EmptyChangeNotification with get, set
 
@@ -257,7 +285,7 @@ module internal InternalElements =
             with    get () : DateTime option    = dateTime
             and     set (dt : DateTime option)  =
                 dateTime            <- dt
-                this.SelectedDate   <- getNullableDateTime dt
+                this.SelectedDate   <- ToNullable dt
 
         override this.OnSelectedDateChanged(e)  =
             base.OnSelectedDateChanged(e)

@@ -89,6 +89,18 @@ module Input =
 
         FormletMonad.New eval
 
+    let TriState (label : string) (initial : bool option): Formlet<FormletContext, UIElement, bool option> =
+        let eval (fc,cl,ft : FormletTree<UIElement>) =
+            let e =
+                match ft with
+                | Element (:? InputTriStateElement as e)-> e
+                | _                                 ->
+                    InputTriStateElement(initial)
+            e.Content       <- label
+            e.ChangeNotifier<- cl
+            (FormletResult.Success e.TriState), Element (e :> UIElement)
+
+        FormletMonad.New eval
 
 module Enhance =
 
