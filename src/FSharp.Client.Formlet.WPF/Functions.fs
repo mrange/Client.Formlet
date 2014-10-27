@@ -20,6 +20,7 @@ open System
 open System.Collections
 open System.Collections.Generic
 open System.Collections.ObjectModel
+open System.Text
 open System.Threading
 open System.Windows
 open System.Windows.Controls
@@ -371,6 +372,45 @@ module internal Functions =
         label.VerticalAlignment     <- VerticalAlignment.Top
         label.HorizontalAlignment   <- HorizontalAlignment.Left
         label
+
+    let DumpLogicalTree (o : DependencyObject) : string =
+        let sb = StringBuilder ()
+        let print indent (v : string) =
+            ignore <| sb
+                .Append(' ', indent)
+                .AppendLine v
+        let rec dump indent (o : DependencyObject) =
+            if o = null then
+                print indent "null"
+            else
+                print indent <| o.GetType().Name
+                let children = LogicalTreeHelper.GetChildren o
+                for c in children do
+                    match c with
+                    | null                      -> print indent "null"
+                    | :? DependencyObject as lc -> dump (indent + 2) lc
+                    | _                         -> print (indent + 2) <| sprintf "%s(%s)" (c.ToString()) (c.GetType().Name)
+
+        dump 0 o
+        sb.ToString ()
+
+    let DumpVisualTree (o : DependencyObject) : string =
+        let sb = StringBuilder ()
+        let print indent (v : string) =
+            ignore <| sb
+                .Append(' ', indent)
+                .AppendLine v
+        let rec dump indent (o : DependencyObject) =
+            if o = null then
+                print indent "null"
+            else
+                print indent <| o.GetType().Name
+                let count = VisualTreeHelper.GetChildrenCount o
+                for i = 0 to count - 1 do
+                    let vc = VisualTreeHelper.GetChild (o,i)
+                    dump (indent + 2) vc
+        dump 0 o
+        sb.ToString ()
 
     type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (dispatcher : Dispatcher) =
         let mutable isDispatching   = false

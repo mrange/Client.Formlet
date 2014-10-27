@@ -348,8 +348,8 @@ module internal InternalElements =
             transform.Translate (DefaultListBoxItemPadding.Left + 5.0, 4.0)
             MatrixTransform (transform)
 
-        let mutable formattedText = Unchecked.defaultof<FormattedText>
-        let mutable lastIndex = -1
+        let mutable formattedText   = null
+        let mutable lastIndex       = -1
 
         do
             this.HorizontalContentAlignment <- HorizontalAlignment.Stretch

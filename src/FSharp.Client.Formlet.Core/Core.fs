@@ -17,8 +17,162 @@
 namespace FSharp.Client.Formlet.Core
 
 open System
-open System.Collections.Generic
+open System.Collections.Concurrent
+open System.Linq.Expressions
+open System.Reflection
 open System.Text.RegularExpressions
+
+open Microsoft.FSharp.Quotations
+open Microsoft.FSharp.Quotations.Patterns
+
+module DefaultValueProvider =
+    type Dictionary<'K, 'U> = System.Collections.Generic.Dictionary<'K, 'U>
+    type IDictionary<'K, 'U>= System.Collections.Generic.IDictionary<'K, 'U>
+    type KeyValue<'K, 'U>   = System.Collections.Generic.KeyValuePair<'K, 'U>
+
+    type ProvidedValue =
+        | NoDefaultValue
+        | UncheckedDefaultValue
+        | DefaultValue          of obj
+        | DefaultValueCreator   of (unit -> obj)
+
+    let internal GetStaticMethodInfo (f : Expr<'T>) : MethodInfo =
+        match f with
+        | Call (_, mi, _) ->
+            if mi.IsGenericMethod then mi.GetGenericMethodDefinition ()
+            else mi
+        | _ -> failwithf "GetStaticMethodInfo requires an Call expression but received: %A" f
+
+    let internal EmptyList<'T> () : 'T list = List.Empty
+
+    let EmptyListMethodInfo : MethodInfo = GetStaticMethodInfo (<@ EmptyList<int> () @>)
+
+    let internal ToKeyValuePairs (vs : seq<'K*'U>) = vs |> Seq.map (fun (k,v) -> KeyValue (k,v))
+
+    let internal ToDictionary (vs : seq<'K*'U>) =
+        let dic = Dictionary<'K,'U> ()
+        for k,v in vs do
+            dic.[k] <- v
+        dic
+
+    let internal ToConcurrentDictionary (vs : seq<'K*'U>) : ConcurrentDictionary<'K,'U> =
+        ConcurrentDictionary<'K, 'U> (vs |> ToKeyValuePairs)
+
+    let internal Lookup (dv : 'U) (k : 'K) (dic : IDictionary<'K, 'U>) : 'U=
+        let mutable v = Unchecked.defaultof<'U>
+        if dic.TryGetValue (k, &v) then
+            v
+        else
+            dv
+
+    let internal DefaultValueProviders =
+        [|
+            typeof<string>      , DefaultValue          ""
+//            typeof<DateTime>    , DefaultValueCreator   <| fun () -> upcast DateTime.Now
+        |] |> ToConcurrentDictionary
+
+    type KnownGenericType =
+        | TupleType of int
+        | ListType
+        | UnknownType
+
+    let internal KnownGenericTypes =
+        [|
+            typeof<Tuple<_>>                        , TupleType 1
+            typeof<Tuple<_,_>>                      , TupleType 2
+            typeof<Tuple<_,_,_>>                    , TupleType 3
+            typeof<Tuple<_,_,_,_>>                  , TupleType 4
+            typeof<Tuple<_,_,_,_,_>>                , TupleType 5
+            typeof<Tuple<_,_,_,_,_,_>>              , TupleType 6
+            typeof<Tuple<_,_,_,_,_,_,_>>            , TupleType 7
+            typeof<Tuple<_,_,_,_,_,_,_,_>>          , TupleType 8
+            typeof<List<_>>                         , ListType
+        |]  |> Array.map (
+                fun (k,v) ->
+                    let gtd     = k.GetGenericTypeDefinition()
+                    gtd,v
+                    )
+            |> ToDictionary
+
+    let internal SetDefaultValueProviderForType (t : Type) (providedValue : ProvidedValue) : unit = DefaultValueProviders.[t] <- providedValue
+
+    let (|HasDefaultCtor|IsTupleType|IsArrayType|IsListType|NoMatch|) (t : Type) =
+        let defaultCtor = t.GetConstructor([||])
+        let arrayType   = if t.IsArray then Some (t.GetElementType ()) else None
+        let genericType = if t.IsGenericType then KnownGenericTypes |> Lookup UnknownType (t.GetGenericTypeDefinition ()) else UnknownType
+
+        match defaultCtor, genericType, arrayType with
+        | null  ,   UnknownType , None  -> NoMatch
+        | null  ,   UnknownType , Some t-> IsArrayType t
+        | null  ,   TupleType sz, _     -> IsTupleType (t.GetConstructors () |> Array.find (fun ctor -> ctor.GetParameters().Length = sz))
+        | null  ,   ListType    , _     -> IsListType (t.GetGenericArguments().[0])
+        | _     ,   _           , _     -> HasDefaultCtor defaultCtor
+
+    let rec internal GetDefaultValueForType (t : Type) : ProvidedValue =
+        if t.IsGenericTypeDefinition then
+            failwithf "Can't get a default value for generic type: %A" t.FullName
+
+        let mutable provider = NoDefaultValue
+        if DefaultValueProviders.TryGetValue (t, &provider) then
+            provider
+        else
+            if t.IsValueType then UncheckedDefaultValue
+            else
+                let provider = CreateProviderForType t
+                SetDefaultValueProviderForType t provider
+                provider
+
+    and internal CreateProviderForType (t : Type) : ProvidedValue =
+        let createLambda body =
+            let unitPar = Expression.Parameter (typeof<unit>, "unit")
+            let expr    = Expression.Lambda<Func<unit, obj>> (Expression.Convert (body, typeof<obj>), unitPar)
+            let func    = expr.Compile ()
+            let dvc     = fun () -> func.Invoke ()
+            DefaultValueCreator dvc
+
+        let createFromCtor ctor args        = createLambda (Expression.New (ctor, args))
+        let createArrayFromType t           = createLambda (Expression.NewArrayBounds (t, Expression.Constant 0))
+        let createListFromType (t : Type)   = createLambda (Expression.Call (null, EmptyListMethodInfo.MakeGenericMethod (t)))
+
+        match t with
+        | HasDefaultCtor defaultCtor ->
+            createFromCtor defaultCtor [||]
+        | IsArrayType arrayType ->
+            createArrayFromType arrayType
+        | IsListType listType ->
+            createListFromType listType
+        | IsTupleType ctor ->
+            let parameters = ctor.GetParameters ()
+            let args =
+                parameters
+                |> Array.map (fun p ->
+                    Expression.Call (null, GetDefaultValueMethodInfo.MakeGenericMethod (p.ParameterType))
+                    :> Expression)
+            createFromCtor ctor args
+        | NoMatch ->
+            NoDefaultValue
+
+    and GetDefaultValue<'T> () =
+        let t = typeof<'T>
+
+        match GetDefaultValueForType t with
+        | NoDefaultValue            ->
+            failwithf
+                "No default value provider or default ctor found for type: %A. Register a default value provider by DefaultValueProvider.SetDefaultValueProvider"
+                t.FullName
+        | UncheckedDefaultValue     ->
+            Unchecked.defaultof<'T>
+        | DefaultValue dv           ->
+            dv :?> 'T
+        | DefaultValueCreator dvc   ->
+            dvc () :?> 'T
+
+    and internal GetDefaultValueMethodInfo : MethodInfo = (GetStaticMethodInfo (<@ GetDefaultValue<int> () @>))
+
+    let SetDefaultValueProvider<'T> (providedValue : ProvidedValue) = SetDefaultValueProviderForType typeof<'T> providedValue
+
+    let GetDefaultValueProviders () : (Type*ProvidedValue) [] =
+        DefaultValueProviders.ToArray () |> Array.map (fun kv -> kv.Key, kv.Value)
 
 /// IFormletContext allows adaptations to provide Form-wide Context
 ///  PushTag/PopTag allows FormLets to add "Tags" to the Context that Formlets in that subtree can peak on
@@ -99,10 +253,10 @@ type FormletTree<'Element when 'Element : not struct> =
     ///  For instance this can be used to create dynamic formlets
     | ForEach   of FormletTree<'Element> []
     /// An adorner element that contains a FormletTree, an example can be Label visual
-    | Adorner   of 'Element*IList<'Element>*FormletTree<'Element>
+    | Adorner   of 'Element*System.Collections.Generic.IList<'Element>*FormletTree<'Element>
     /// An element that represents a visual that replicates a FormLet any number of times
     ///  For instance this could be order rows in an order
-    | Many      of 'Element*IReadOnlyList<IList<'Element>*FormletTree<'Element>>
+    | Many      of 'Element*System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IList<'Element>*FormletTree<'Element>>
     /// Modifies the layout recursively for this FormletTree
     | Layout    of FormletLayout*FormletTree<'Element>
     /// Joins two FormletTrees, this is typically the result of the Bind operation in the Formlet Monad
@@ -136,8 +290,7 @@ type FormletResult<'T> =
     }
     static member New       (value : 'T) (failures : FormletFailure list) = { Value = value; Failures = failures; }
     static member Success   (value : 'T) = FormletResult.New value []
-    // TODO: Unchecked.defaultof can bring type invariants, should find a better way.
-    static member Failure   (failures : FormletFailure list) = FormletResult.New Unchecked.defaultof<_> failures
+    static member Failure   (failures : FormletFailure list) = FormletResult.New (DefaultValueProvider.GetDefaultValue<_> ()) failures
     static member FailWith  (failure : string) = FormletResult<_>.Failure [FormletFailure.New [] failure]
 
     member this.HasFailures = not this.Failures.IsEmpty
@@ -186,7 +339,7 @@ module FormletMonad =
     let inline New eval : Formlet<'Context, 'Element, 'T> = Formlet<_,_,_>.New eval
 
     let Zero () : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,cl,ft) = (FormletResult.Success Unchecked.defaultof<_>, Empty)
+        let eval (fc,cl,ft) = (FormletResult.Success (DefaultValueProvider.GetDefaultValue<_> ()), Empty)
 
         New eval
 

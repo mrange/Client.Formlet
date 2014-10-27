@@ -152,7 +152,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         formTree <- ft
         // TODO: Remove
         printfn "Result: %A" c
-        printfn "Tree: %A" formTree
+        printfn "FormletTree: \n%A" formTree
         printfn "=============================================================="
         c,ft
 
@@ -174,5 +174,10 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         postProcessElements ls c
 
         scrollViewer.Content <- lay
+
+        // TODO: Remove
+        printfn "VisualTree: \n%s"  <| DumpVisualTree   (scrollViewer.Content :?> DependencyObject)
+        printfn "LogicalTree: \n%s" <| DumpLogicalTree  (scrollViewer.Content :?> DependencyObject)
+        printfn "=============================================================="
 
         ()
