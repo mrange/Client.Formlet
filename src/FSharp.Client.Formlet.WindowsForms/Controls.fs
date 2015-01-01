@@ -28,6 +28,7 @@ module Controls =
 
     let EmptyChangeNotification : FormletChangeNotification = fun () -> ()
 
+    [<AllowNullLiteral>]
     type LayoutControl () as this =
         inherit Control ()
 

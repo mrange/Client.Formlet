@@ -46,9 +46,13 @@ module Main =
 
         let submit v= printfn "Submit: %A" v
         let formletControl = new FormletControl<_> (submit, person)
+        let anchor = AnchorStyles.Bottom ||| AnchorStyles.Top ||| AnchorStyles.Left ||| AnchorStyles.Right
+        formletControl.Size         <- form.Size
+        formletControl.Anchor       <- anchor
+        formletControl.BackColor    <- Drawing.Color.LightBlue
 
         form.Controls.Add (formletControl)
-        form.Controls.Add (null);
+//        form.Controls.Add (null);
 
         ignore <| form.ShowDialog ();
 
