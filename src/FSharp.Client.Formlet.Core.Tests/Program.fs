@@ -14,7 +14,7 @@
  * limitations under the License.
  *)
 
-#nowarn "20"
+#nowarn "20"    // Check* functions return a boolean which we often ignore
 
 open System
 
@@ -37,28 +37,34 @@ let Failure (msg : string) =
     ColorPrint ConsoleColor.Red "FAILURE : " msg
 
 let CheckEq (expected : 'T) (actual : 'T) =
-    if expected <> actual then
+    if not (expected = actual) then
         Failure <| sprintf "EQ: %A <> %A" expected actual
         false
     else
         true
 
+let CheckNeq (expected : 'T) (actual : 'T) =
+    if not (expected <> actual) then
+        Failure <| sprintf "NEQ: %A <> %A" expected actual
+        false
+    else
+        true
 
-let TestDefaultValueProvider () =
-    CheckEq 1                   <| (DefaultValueProvider.GetDefaultValueProviders ()).Length
+let TestEmptyValueProvider () =
+    // Simple test cases
+    CheckEq 1                   <| (EmptyValueProvider.GetValueProviders ()).Length
 
-    CheckEq ""                  <| DefaultValueProvider.GetDefaultValue<string> ()
-    CheckEq 0                   <| DefaultValueProvider.GetDefaultValue<int> ()
-    CheckEq DateTime.MinValue   <| DefaultValueProvider.GetDefaultValue<DateTime> ()
-    CheckEq [||]                <| DefaultValueProvider.GetDefaultValue<int[]> ()
-    CheckEq [||]                <| DefaultValueProvider.GetDefaultValue<int[]> ()
-    CheckEq []                  <| DefaultValueProvider.GetDefaultValue<int list> ()
-    CheckEq ("",0)              <| DefaultValueProvider.GetDefaultValue<string*int> ()
-    CheckEq ("",0)              <| DefaultValueProvider.GetDefaultValue<string*int> ()
-    // TODO: Add a way to support creation of generic types
-    //CheckEq Map.empty           <| DefaultValueProvider.GetDefaultValue<Map<int,int>> ()
+    CheckEq ""                  <| EmptyValueProvider.GetEmptyValue<string> ()
+    CheckEq 0                   <| EmptyValueProvider.GetEmptyValue<int> ()
+    CheckEq DateTime.MinValue   <| EmptyValueProvider.GetEmptyValue<DateTime> ()
+    CheckEq [||]                <| EmptyValueProvider.GetEmptyValue<int[]> ()
+    CheckEq None                <| EmptyValueProvider.GetEmptyValue<int option> ()
+    CheckEq []                  <| EmptyValueProvider.GetEmptyValue<int list> ()
+    CheckEq Map.empty           <| EmptyValueProvider.GetEmptyValue<Map<int,int>> ()
+    CheckEq ("",0)              <| EmptyValueProvider.GetEmptyValue<string*int> ()
+    CheckEq ("",0)              <| EmptyValueProvider.GetEmptyValue<string*int> ()
 
-    CheckEq 4                   <| (DefaultValueProvider.GetDefaultValueProviders ()).Length
+    CheckEq 6                   <| (EmptyValueProvider.GetValueProviders ()).Length
 
     ()
 
@@ -70,7 +76,7 @@ let RunTests (action : unit->unit) =
 
 [<EntryPoint>]
 let main argv =
-    RunTests <| TestDefaultValueProvider
+    RunTests <| TestEmptyValueProvider
 
     if FailureCount > 0  then
         Failure <| sprintf "%d failures detected during test run" FailureCount

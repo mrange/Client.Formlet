@@ -25,16 +25,18 @@ open System.Text.RegularExpressions
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
-module DefaultValueProvider =
-    type Dictionary<'K, 'U> = System.Collections.Generic.Dictionary<'K, 'U>
-    type IDictionary<'K, 'U>= System.Collections.Generic.IDictionary<'K, 'U>
-    type KeyValue<'K, 'U>   = System.Collections.Generic.KeyValuePair<'K, 'U>
+module EmptyValueProvider =
+    type internal Dictionary<'K, 'U> = System.Collections.Generic.Dictionary<'K, 'U>
+    type internal IDictionary<'K, 'U>= System.Collections.Generic.IDictionary<'K, 'U>
+    type internal KeyValue<'K, 'U>   = System.Collections.Generic.KeyValuePair<'K, 'U>
 
     type ProvidedValue =
-        | NoDefaultValue
-        | UncheckedDefaultValue
-        | DefaultValue          of obj
-        | DefaultValueCreator   of (unit -> obj)
+        | NoEmptyValue
+        | UncheckedEmptyValue
+        | EmptyValue          of obj
+        | EmptyValueCreator   of (unit -> obj)
+
+    type GenericProvidedValue = Type*Type->ProvidedValue
 
     let internal GetStaticMethodInfo (f : Expr<'T>) : MethodInfo =
         match f with
@@ -43,9 +45,13 @@ module DefaultValueProvider =
             else mi
         | _ -> failwithf "GetStaticMethodInfo requires an Call expression but received: %A" f
 
-    let internal EmptyList<'T> () : 'T list = List.Empty
+    let internal EmptyOption<'T> () : 'T option                         = None
+    let internal EmptyList<'T> () : 'T list                             = List.Empty
+    let internal EmptyMap<'K,'U when 'K : comparison> () : Map<'K, 'U>  = Map.empty
 
-    let EmptyListMethodInfo : MethodInfo = GetStaticMethodInfo (<@ EmptyList<int> () @>)
+    let internal EmptyOptionMethodInfo  : MethodInfo    = GetStaticMethodInfo (<@ EmptyOption<int> () @>)
+    let internal EmptyListMethodInfo    : MethodInfo    = GetStaticMethodInfo (<@ EmptyList<int> () @>)
+    let internal EmptyMapMethodInfo     : MethodInfo    = GetStaticMethodInfo (<@ EmptyMap<int,int> () @>)
 
     let internal ToKeyValuePairs (vs : seq<'K*'U>) = vs |> Seq.map (fun (k,v) -> KeyValue (k,v))
 
@@ -65,114 +71,140 @@ module DefaultValueProvider =
         else
             dv
 
-    let internal DefaultValueProviders =
+    let internal ValueProviders : ConcurrentDictionary<Type, ProvidedValue> =
         [|
-            typeof<string>      , DefaultValue          ""
-//            typeof<DateTime>    , DefaultValueCreator   <| fun () -> upcast DateTime.Now
+            typeof<string>      , EmptyValue          ""
         |] |> ToConcurrentDictionary
 
-    type KnownGenericType =
-        | TupleType of int
-        | ListType
-        | UnknownType
+    let internal NoGenericValueProvider (t : Type, gt : Type) : ProvidedValue =
+        NoEmptyValue
 
-    let internal KnownGenericTypes =
-        [|
-            typeof<Tuple<_>>                        , TupleType 1
-            typeof<Tuple<_,_>>                      , TupleType 2
-            typeof<Tuple<_,_,_>>                    , TupleType 3
-            typeof<Tuple<_,_,_,_>>                  , TupleType 4
-            typeof<Tuple<_,_,_,_,_>>                , TupleType 5
-            typeof<Tuple<_,_,_,_,_,_>>              , TupleType 6
-            typeof<Tuple<_,_,_,_,_,_,_>>            , TupleType 7
-            typeof<Tuple<_,_,_,_,_,_,_,_>>          , TupleType 8
-            typeof<List<_>>                         , ListType
-        |]  |> Array.map (
-                fun (k,v) ->
-                    let gtd     = k.GetGenericTypeDefinition()
-                    gtd,v
-                    )
-            |> ToDictionary
+    let internal CreateLambda body =
+        let unitPar = Expression.Parameter (typeof<unit>, "unit")
+        let expr    = Expression.Lambda<Func<unit, obj>> (Expression.Convert (body, typeof<obj>), unitPar)
+        let func    = expr.Compile ()
+        let dvc     = fun () -> func.Invoke ()
+        EmptyValueCreator dvc
 
-    let internal SetDefaultValueProviderForType (t : Type) (providedValue : ProvidedValue) : unit = DefaultValueProviders.[t] <- providedValue
+    let internal CtorValueProvider (ctor : ConstructorInfo) (args : Expression []) : ProvidedValue =
+        CreateLambda (Expression.New (ctor, args))
 
-    let (|HasDefaultCtor|IsTupleType|IsArrayType|IsListType|NoMatch|) (t : Type) =
+    let internal ArrayValueProvider (et : Type) : ProvidedValue =
+        EmptyValue <| upcast System.Array.CreateInstance(et, 0)
+
+    let internal GenericOptionValueProvider (t : Type, gt : Type) : ProvidedValue =
+        let args    = t.GetGenericArguments()
+        let vt      = args.[0]
+        let mi      = EmptyOptionMethodInfo.MakeGenericMethod (vt)
+        EmptyValue <| mi.Invoke (null, [||])
+
+    let internal GenericListValueProvider (t : Type, gt : Type) : ProvidedValue =
+        let args    = t.GetGenericArguments()
+        let vt      = args.[0]
+        let mi      = EmptyListMethodInfo.MakeGenericMethod (vt)
+        EmptyValue <| mi.Invoke (null, [||])
+
+    let internal GenericMapValueProvider (t : Type, gt : Type) : ProvidedValue =
+        let args    = t.GetGenericArguments()
+        let kt      = args.[0]
+        let vt      = args.[1]
+        let mi      = EmptyMapMethodInfo.MakeGenericMethod (kt, vt)
+        EmptyValue <| mi.Invoke (null, [||])
+
+    let (|HasDefaultCtor|IsArrayType|IsGenericType|NoMatch|) (t : Type) =
         let defaultCtor = t.GetConstructor([||])
         let arrayType   = if t.IsArray then Some (t.GetElementType ()) else None
-        let genericType = if t.IsGenericType then KnownGenericTypes |> Lookup UnknownType (t.GetGenericTypeDefinition ()) else UnknownType
+        let genericType = if t.IsGenericType then Some (t.GetGenericTypeDefinition ()) else None
 
         match defaultCtor, genericType, arrayType with
-        | null  ,   UnknownType , None  -> NoMatch
-        | null  ,   UnknownType , Some t-> IsArrayType t
-        | null  ,   TupleType sz, _     -> IsTupleType (t.GetConstructors () |> Array.find (fun ctor -> ctor.GetParameters().Length = sz))
-        | null  ,   ListType    , _     -> IsListType (t.GetGenericArguments().[0])
-        | _     ,   _           , _     -> HasDefaultCtor defaultCtor
+        | null  ,   None    , None      -> NoMatch
+        | _     ,   None    , None      -> HasDefaultCtor defaultCtor
+        | null  ,   None    , Some et   -> IsArrayType et
+        | null  ,   Some gt , None      -> IsGenericType gt
+        | _                             -> NoMatch
 
-    let rec internal GetDefaultValueForType (t : Type) : ProvidedValue =
+    let internal SetValueProviderForType (t : Type) (providedValue : ProvidedValue) : unit = ValueProviders.[t] <- providedValue
+
+    let rec internal GenericTupleValueProvider (t : Type, gt : Type)   : ProvidedValue =
+        let args    = t.GetGenericArguments()
+        let ctor    = t.GetConstructors () |> Array.find (fun ctor -> ctor.GetParameters().Length = args.Length)
+        let paras   = ctor.GetParameters ()
+        let args =
+            paras
+            |> Array.map (fun p ->
+                Expression.Call (null, GetEmptyValueMethodInfo.MakeGenericMethod (p.ParameterType))
+                :> Expression)
+        CtorValueProvider ctor args
+
+    and internal GenericValueProviders : ConcurrentDictionary<Type, GenericProvidedValue> =
+        [|
+            typedefof<Option<_>>                , GenericOptionValueProvider
+            typedefof<List<_>>                  , GenericListValueProvider
+            typedefof<Map<_,_>>                 , GenericMapValueProvider
+            typedefof<Tuple<_>>                 , GenericTupleValueProvider
+            typedefof<Tuple<_,_>>               , GenericTupleValueProvider
+            typedefof<Tuple<_,_,_>>             , GenericTupleValueProvider
+            typedefof<Tuple<_,_,_,_>>           , GenericTupleValueProvider
+            typedefof<Tuple<_,_,_,_,_>>         , GenericTupleValueProvider
+            typedefof<Tuple<_,_,_,_,_,_>>       , GenericTupleValueProvider
+            typedefof<Tuple<_,_,_,_,_,_,_>>     , GenericTupleValueProvider
+            typedefof<Tuple<_,_,_,_,_,_,_,_>>   , GenericTupleValueProvider
+        |] |> ToConcurrentDictionary
+
+    and internal GetEmptyValueForType (t : Type) : ProvidedValue =
         if t.IsGenericTypeDefinition then
             failwithf "Can't get a default value for generic type: %A" t.FullName
 
-        let mutable provider = NoDefaultValue
-        if DefaultValueProviders.TryGetValue (t, &provider) then
+        let mutable provider = NoEmptyValue
+        if ValueProviders.TryGetValue (t, &provider) then
             provider
         else
-            if t.IsValueType then UncheckedDefaultValue
+            if t.IsValueType then UncheckedEmptyValue
             else
                 let provider = CreateProviderForType t
-                SetDefaultValueProviderForType t provider
+                SetValueProviderForType t provider
                 provider
 
     and internal CreateProviderForType (t : Type) : ProvidedValue =
-        let createLambda body =
-            let unitPar = Expression.Parameter (typeof<unit>, "unit")
-            let expr    = Expression.Lambda<Func<unit, obj>> (Expression.Convert (body, typeof<obj>), unitPar)
-            let func    = expr.Compile ()
-            let dvc     = fun () -> func.Invoke ()
-            DefaultValueCreator dvc
-
-        let createFromCtor ctor args        = createLambda (Expression.New (ctor, args))
-        let createArrayFromType t           = createLambda (Expression.NewArrayBounds (t, Expression.Constant 0))
-        let createListFromType (t : Type)   = createLambda (Expression.Call (null, EmptyListMethodInfo.MakeGenericMethod (t)))
-
         match t with
         | HasDefaultCtor defaultCtor ->
-            createFromCtor defaultCtor [||]
+            CtorValueProvider defaultCtor [||]
         | IsArrayType arrayType ->
-            createArrayFromType arrayType
-        | IsListType listType ->
-            createListFromType listType
-        | IsTupleType ctor ->
-            let parameters = ctor.GetParameters ()
-            let args =
-                parameters
-                |> Array.map (fun p ->
-                    Expression.Call (null, GetDefaultValueMethodInfo.MakeGenericMethod (p.ParameterType))
-                    :> Expression)
-            createFromCtor ctor args
+            ArrayValueProvider arrayType
+        | IsGenericType genericType ->
+            let genericValueProvider = GenericValueProviders |> Lookup NoGenericValueProvider genericType
+            genericValueProvider (t, genericType)
         | NoMatch ->
-            NoDefaultValue
+            NoEmptyValue
 
-    and GetDefaultValue<'T> () =
+    and GetEmptyValue<'T> () =
         let t = typeof<'T>
 
-        match GetDefaultValueForType t with
-        | NoDefaultValue            ->
+        match GetEmptyValueForType t with
+        | NoEmptyValue            ->
             failwithf
-                "No default value provider or default ctor found for type: %A. Register a default value provider by DefaultValueProvider.SetDefaultValueProvider"
+                "No default value provider or default ctor found for type: %A. Register a default value provider by EmptyValueProvider.SetEmptyValueProvider"
                 t.FullName
-        | UncheckedDefaultValue     ->
+        | UncheckedEmptyValue     ->
             Unchecked.defaultof<'T>
-        | DefaultValue dv           ->
+        | EmptyValue dv           ->
             dv :?> 'T
-        | DefaultValueCreator dvc   ->
+        | EmptyValueCreator dvc   ->
             dvc () :?> 'T
 
-    and internal GetDefaultValueMethodInfo : MethodInfo = (GetStaticMethodInfo (<@ GetDefaultValue<int> () @>))
+    and internal GetEmptyValueMethodInfo : MethodInfo = (GetStaticMethodInfo (<@ GetEmptyValue<int> () @>))
 
-    let SetDefaultValueProvider<'T> (providedValue : ProvidedValue) = SetDefaultValueProviderForType typeof<'T> providedValue
+    let SetValueProvider<'T> (providedValue : ProvidedValue) = SetValueProviderForType typeof<'T> providedValue
 
-    let GetDefaultValueProviders () : (Type*ProvidedValue) [] =
-        DefaultValueProviders.ToArray () |> Array.map (fun kv -> kv.Key, kv.Value)
+    let GetValueProviders () : (Type*ProvidedValue) [] =
+        ValueProviders.ToArray () |> Array.map (fun kv -> kv.Key, kv.Value)
+
+    let SetGenericValueProvider (genericType : Type) (genericProvidedValue : GenericProvidedValue) =
+        GenericValueProviders.[genericType] <- genericProvidedValue
+
+    let GetGenericValueProviders () : (Type*GenericProvidedValue) [] =
+        GenericValueProviders.ToArray () |> Array.map (fun kv -> kv.Key, kv.Value)
+
 
 /// IFormletContext allows adaptations to provide Form-wide Context
 ///  PushTag/PopTag allows FormLets to add "Tags" to the Context that Formlets in that subtree can peak on
@@ -290,7 +322,7 @@ type FormletResult<'T> =
     }
     static member New       (value : 'T) (failures : FormletFailure list) = { Value = value; Failures = failures; }
     static member Success   (value : 'T) = FormletResult.New value []
-    static member Failure   (failures : FormletFailure list) = FormletResult.New (DefaultValueProvider.GetDefaultValue<_> ()) failures
+    static member Failure   (failures : FormletFailure list) = FormletResult.New (EmptyValueProvider.GetEmptyValue<_> ()) failures
     static member FailWith  (failure : string) = FormletResult<_>.Failure [FormletFailure.New [] failure]
 
     member this.HasFailures = not this.Failures.IsEmpty
@@ -339,7 +371,7 @@ module FormletMonad =
     let inline New eval : Formlet<'Context, 'Element, 'T> = Formlet<_,_,_>.New eval
 
     let Zero () : Formlet<'Context, 'Element, 'T> =
-        let eval (fc,cl,ft) = (FormletResult.Success (DefaultValueProvider.GetDefaultValue<_> ()), Empty)
+        let eval (fc,cl,ft) = (FormletResult.Success (EmptyValueProvider.GetEmptyValue<_> ()), Empty)
 
         New eval
 
