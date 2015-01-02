@@ -25,6 +25,9 @@ open System.Text.RegularExpressions
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
+/// EmptyValueProvider is used when an empty value is required.
+///  EmptyValueProvider supports several built-in F# types but allows
+///  registering empty value for custom types
 module EmptyValueProvider =
     type internal Dictionary<'K, 'U> = System.Collections.Generic.Dictionary<'K, 'U>
     type internal IDictionary<'K, 'U>= System.Collections.Generic.IDictionary<'K, 'U>
@@ -177,6 +180,7 @@ module EmptyValueProvider =
         | NoMatch ->
             NoEmptyValue
 
+    /// Gets an empty value of type 'T
     and GetEmptyValue<'T> () =
         let t = typeof<'T>
 
@@ -194,14 +198,21 @@ module EmptyValueProvider =
 
     and internal GetEmptyValueMethodInfo : MethodInfo = (GetStaticMethodInfo (<@ GetEmptyValue<int> () @>))
 
+    /// Sets a value provider for a type 'T
     let SetValueProvider<'T> (providedValue : ProvidedValue) = SetValueProviderForType typeof<'T> providedValue
 
+    /// Gets an array of all known value providers
     let GetValueProviders () : (Type*ProvidedValue) [] =
         ValueProviders.ToArray () |> Array.map (fun kv -> kv.Key, kv.Value)
 
+    /// Sets a generic value provider for a generic type 'T
     let SetGenericValueProvider (genericType : Type) (genericProvidedValue : GenericProvidedValue) =
+        if not genericType.IsGenericTypeDefinition then
+            failwithf "genericType %A must be a generic type definition" genericType.FullName
+
         GenericValueProviders.[genericType] <- genericProvidedValue
 
+    /// Gets an array of all known generic value providers
     let GetGenericValueProviders () : (Type*GenericProvidedValue) [] =
         GenericValueProviders.ToArray () |> Array.map (fun kv -> kv.Key, kv.Value)
 
