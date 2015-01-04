@@ -25,7 +25,7 @@ open InternalElements
 
 module Input =
 
-    let Text initialText : Formlet<FormletContext, UIElement, string> =
+    let Text initialText : Formlet<IFormletContext, UIElement, string> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let e =
                 match ft with
@@ -51,7 +51,7 @@ module Input =
         |> Formlet.MapResult map
         |> FormletMonad.Cache
 
-    let DateTime (initialDateTime : DateTime option) : Formlet<FormletContext, UIElement, DateTime> =
+    let DateTime (initialDateTime : DateTime option) : Formlet<IFormletContext, UIElement, DateTime> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let e =
                 match ft with
@@ -70,7 +70,7 @@ module Input =
 
         FormletMonad.New eval
 
-    let Option (initial : int) (options : (string * 'T) []) : Formlet<FormletContext, UIElement, 'T option> =
+    let Option (initial : int) (options : (string * 'T) []) : Formlet<IFormletContext, UIElement, 'T option> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let e =
                 match ft with
@@ -89,7 +89,7 @@ module Input =
 
         FormletMonad.New eval
 
-    let TriState (label : string) (initial : bool option): Formlet<FormletContext, UIElement, bool option> =
+    let TriState (label : string) (initial : bool option): Formlet<IFormletContext, UIElement, bool option> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let e =
                 match ft with
@@ -104,7 +104,7 @@ module Input =
 
 module Enhance =
 
-    let Many (initialCount : int) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T[]> =
+    let Many (initialCount : int) (f : Formlet<IFormletContext, UIElement, 'T>) : Formlet<IFormletContext, UIElement, 'T[]> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let me, adorners =
                 match ft with
@@ -134,7 +134,7 @@ module Enhance =
 
         FormletMonad.New eval
 
-    let WithLabel (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
+    let WithLabel (l : string) (f : Formlet<IFormletContext, UIElement, 'T>) : Formlet<IFormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let (le, list, ift) =
                 match ft with
@@ -152,7 +152,7 @@ module Enhance =
         FormletMonad.New eval
 
 
-    let WithErrorVisual (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
+    let WithErrorVisual (f : Formlet<IFormletContext, UIElement, 'T>) : Formlet<IFormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let ift =
                 match ft with
@@ -164,7 +164,7 @@ module Enhance =
 
         FormletMonad.New eval
 
-    let WithLegend (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
+    let WithLegend (l : string) (f : Formlet<IFormletContext, UIElement, 'T>) : Formlet<IFormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let le, list, ift =
                 match ft with
@@ -181,7 +181,7 @@ module Enhance =
 
         FormletMonad.New eval
 
-    let WithErrorSummary (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
+    let WithErrorSummary (f : Formlet<IFormletContext, UIElement, 'T>) : Formlet<IFormletContext, UIElement, 'T> =
         let eval (fc,cl,ft : FormletTree<UIElement>) =
             let ese, list, ift =
                 match ft with

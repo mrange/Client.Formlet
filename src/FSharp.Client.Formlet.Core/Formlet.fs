@@ -22,8 +22,8 @@ open System.Text.RegularExpressions
 /// IFormletContext allows adaptations to provide Form-wide Context
 ///  PushTag/PopTag allows FormLets to add "Tags" to the Context that Formlets in that subtree can peak on
 type IFormletContext =
-    abstract PushTag            : obj   -> unit
-    abstract PopTag             : unit  -> unit
+    abstract PushTag : obj  -> unit
+    abstract PopTag  : unit -> unit
 
 /// IFormletContext is used for caching sub-results in the FormletTree.
 ///  Doing a full recomputation of the result can be expansive, inserting

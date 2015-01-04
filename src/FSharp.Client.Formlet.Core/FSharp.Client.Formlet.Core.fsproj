@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="EmptyValueProvider.fs" />
     <Compile Include="Formlet.fs" />
+    <Compile Include="Flowlet.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

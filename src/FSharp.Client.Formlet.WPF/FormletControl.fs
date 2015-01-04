@@ -30,12 +30,7 @@ type FormletDispatchAction =
     | Submit    = 2
     | Reset     = 3
 
-type FormletContext () =
-    interface IFormletContext with
-        member this.PushTag tag     = ()
-        member this.PopTag ()       = ()
-
-type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) as this =
+type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> unit, formlet : Formlet<IFormletContext, UIElement, 'TValue>) as this =
     inherit DecoratorElement (scrollViewer)
 
     let queue                       = SingleDispatchQueue<FormletDispatchAction> (this.Dispatcher)
@@ -43,6 +38,13 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
     let mutable changeGeneration    = 0
 
     let onLoaded v = this.BuildForm ()
+
+    let context     = 
+        {
+            new IFormletContext with
+                member x.PushTag t = ()
+                member x.PopTag () = ()
+        }
 
     do
         AddRoutedEventHandler FormletElement.SubmitEvent   this this.OnSubmit
@@ -134,7 +136,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
     let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
 
-    new (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) =
+    new (submit : 'TValue -> unit, formlet : Formlet<IFormletContext, UIElement, 'TValue>) =
         let scrollViewer = ScrollViewer ()
         FormletControl (scrollViewer, submit, formlet)
 
@@ -146,7 +148,6 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         this.BuildForm ()
 
     member this.Evaluate () =
-        let context = FormletContext ()
         let c,ft    = formlet.Evaluate (context, cacheInvalidator, formTree)
         // TODO: "Dispose" visual elements that are no longer in tree
         formTree <- ft

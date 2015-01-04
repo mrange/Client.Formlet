@@ -216,6 +216,25 @@ module internal Functions =
     let AddGridColumn_Pixel w g =
         AddGridColumn (GridLength (w, GridUnitType.Pixel)) g
 
+    let AddGridRow h (grid : Grid) =
+        let gridRow = RowDefinition ()
+        gridRow.Height <- h
+        grid.RowDefinitions.Add gridRow
+        grid
+
+    let AddGridRow_Auto g =
+        AddGridRow GridLength.Auto g
+
+    let AddGridRow_Star w g =
+        AddGridRow (GridLength (w, GridUnitType.Star)) g
+
+    let AddGridRow_Pixel w g =
+        AddGridRow (GridLength (w, GridUnitType.Pixel)) g
+
+    let AddPanelChild ch (panel : Panel) = 
+        ignore <| panel.Children.Add ch
+        panel
+
     let AddGridChild ch c r (grid : Grid) =
         ignore <| Grid.SetColumn    (ch, c)
         ignore <| Grid.SetRow       (ch, r)

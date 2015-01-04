@@ -172,9 +172,18 @@ module Main =
 
         let complete = full |> Enhance.WithErrorSummary
 
+        let flow = 
+            flowlet {
+                let! firstName, lastName, birthDate = Flowlet.Show person
+                let! addresses                      = Flowlet.Show addresses
+                let! name, values                   = Flowlet.Show companyInfo
+                return firstName, lastName, addresses, birthDate, name, values
+            }
+
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
-        window.Content <- FormletControl(submit, complete)
+//        window.Content <- FormletControl(submit, complete)
+        window.Content <- FlowletControl(submit, flow)
 
         ignore <| window.ShowDialog ()
 
