@@ -172,6 +172,22 @@ module Main =
 
         let complete = full |> Enhance.WithErrorSummary
 
+        let sampleFlow = 
+            let get result = 
+                flowlet {
+                    if result then
+                        let! firstName, lastName, birthDate = Flowlet.Show person
+                        return firstName
+                    else
+                        let! name, values                   = Flowlet.Show companyInfo
+                        return name
+                }
+            flowlet {
+                let! result = Flowlet.Show <| YesNo "Testing" None
+                let! res    = get result
+                return res
+            }
+
         let flow = 
             flowlet {
                 let! firstName, lastName, birthDate = Flowlet.Show person
@@ -183,7 +199,7 @@ module Main =
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
 //        window.Content <- FormletControl(submit, complete)
-        window.Content <- FlowletControl(submit, flow)
+        window.Content <- FlowletControl(submit, sampleFlow)
 
         ignore <| window.ShowDialog ()
 

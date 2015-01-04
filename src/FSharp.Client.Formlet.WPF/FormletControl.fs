@@ -154,9 +154,11 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
         let scrollViewer = ScrollViewer ()
         FormletControl<_> (scrollViewer, submit, formlet)
 
-    member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Submit   , this.SubmitForm)
-    member this.OnReset     (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
+    member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = this.AsyncSubmitForm ()
+    member this.OnReset     (sender : obj) (e : RoutedEventArgs) = this.AsyncSubmitForm ()
 
+    member this.AsyncSubmitForm () = queue.Dispatch (FormletDispatchAction.Submit   , this.SubmitForm)
+    member this.AsyncResetForm ()  = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
 
     member this.Evaluate () =
         let c,ft    = formlet.Evaluate (context, cacheInvalidator, formTree)
