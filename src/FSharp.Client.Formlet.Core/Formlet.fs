@@ -22,8 +22,8 @@ open System.Text.RegularExpressions
 /// IFormletContext allows adaptations to provide Form-wide Context
 ///  PushTag/PopTag allows FormLets to add "Tags" to the Context that Formlets in that subtree can peak on
 type IFormletContext =
-    abstract PushTag            : obj   -> unit
-    abstract PopTag             : unit  -> unit
+    abstract PushTag : obj  -> unit
+    abstract PopTag  : unit -> unit
 
 /// IFormletContext is used for caching sub-results in the FormletTree.
 ///  Doing a full recomputation of the result can be expansive, inserting
@@ -108,7 +108,7 @@ type FormletTree<'Element when 'Element : not struct> =
     | Fork      of FormletTree<'Element>*FormletTree<'Element>
     /// Modifies an visual element, for instance can be used to add error visual
     ///  if the result contained failures
-    | Modify    of ('Element->unit)*FormletTree<'Element>
+    | Modify    of ('Element -> unit)*FormletTree<'Element>
     /// Names a FormletTree, used to prevent unintentional reuse of the FormletTree state
     | Group     of string*FormletTree<'Element>
     /// Caches the result of the FormletTree
@@ -251,9 +251,7 @@ module FormletMonad =
         member this.Zero        ()      = Zero          ()
 
 module Formlet =
-
-    let inline Return v = FormletMonad.Return v
-
+    /// Failures returns the current list of FormletFailures
     let Failures (f : Formlet<'Context, 'Element, _>) : Formlet<'Context, 'Element, FormletFailure list> =
         let eval (fc,cl,ft) =
             let c,nft = f.Evaluate (fc,cl,ft)
@@ -282,7 +280,7 @@ module Formlet =
             let length = fs.Length
             let fts =
                 match ft with
-                | ForEach fts   when fts.Length = length-> fts
+                | ForEach fts when fts.Length = length  -> fts
                 | ForEach fts                           ->
                     let result = Array.create length Empty
                     Array.Copy (fts, result, min fts.Length length)
@@ -366,11 +364,10 @@ module Formlet =
     let Validate_Option (defaultValue : 'T) (msg : string) (f : Formlet<'Context, 'Element, 'T option>) : Formlet<'Context, 'Element, 'T> =
         let m result =
             match result.Value, result.Failures with
-            | Some v, []-> FormletResult.Success v
-            | _     , fs-> FormletResult.New defaultValue ((FormletFailure.New [] msg)::fs)
+            | Some v, [] -> FormletResult.Success v
+            | _     , fs -> FormletResult.New defaultValue ((FormletFailure.New [] msg)::fs)
         MapResult m f
 
 [<AutoOpen>]
 module FormletAutoOpen =
-
     let formlet = FormletMonad.FormletBuilder ()

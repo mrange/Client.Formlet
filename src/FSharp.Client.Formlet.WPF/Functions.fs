@@ -31,6 +31,12 @@ open System.Windows.Threading
 
 open FSharp.Client.Formlet.Core
 
+type FormletContext = IFormletContext
+type FormletTree    = FormletTree<UIElement>
+type Formlet<'T>    = Formlet<FormletContext, UIElement, 'T>
+type FlowletContext = IFlowletContext<IFormletContext, UIElement>
+type Flowlet<'T>    = Flowlet<FlowletContext, FormletContext, UIElement, 'T>
+
 [<AutoOpen>]
 module internal Functions =
 
@@ -109,7 +115,6 @@ module internal Functions =
 
     let DefaultBackgroundBrush      = Brushes.White     :> Brush
     let DefaultForegroundBrush      = Brushes.Black     :> Brush
-    let DefaultBorderBrush          = Brushes.SkyBlue   :> Brush
     let DefaultErrorBrush           = Brushes.Red       :> Brush
 
     let DefaultMargin               = Thickness (4.0)
@@ -118,9 +123,10 @@ module internal Functions =
 
     let DefaultListBoxItemPadding   = Thickness (24.0,0.0,0.0,0.0)
 
-    let DefaultBorderMargin         = Thickness (0.0,8.0,0.0,0.0)
-    let DefaultBorderPadding        = Thickness (0.0,16.0,4.0,8.0)
-    let DefaultBorderThickness      = Thickness (2.0)
+    let LegendBorderBrush           = Brushes.SkyBlue   :> Brush
+    let LegendBorderMargin          = Thickness (0.0,8.0,0.0,0.0)
+    let LegendBorderPadding         = Thickness (0.0,16.0,4.0,8.0)
+    let LegendBorderThickness       = Thickness (2.0)
 
     let DefaultFontFamily           = FontFamily "Segoe UI"
     let SymbolFontFamily            = FontFamily "Segoe UI Symbol"
@@ -201,6 +207,21 @@ module internal Functions =
         br.Freeze ()
         br
 
+    let AddPanelChild ch (panel : Panel) =
+        ignore <| panel.Children.Add ch
+        panel
+
+    let AddDockChild ch (dock : Dock) (dockPanel : DockPanel) =
+        DockPanel.SetDock (ch, dock)
+        ignore <| dockPanel.Children.Add ch
+        dockPanel
+
+    let AddDockChild_If condition ch (dock : Dock) (dockPanel : DockPanel) =
+        if condition then
+            DockPanel.SetDock (ch, dock)
+            ignore <| dockPanel.Children.Add ch
+        dockPanel
+
     let AddGridColumn w (grid : Grid) =
         let gridColumn = ColumnDefinition ()
         gridColumn.Width <- w
@@ -216,9 +237,24 @@ module internal Functions =
     let AddGridColumn_Pixel w g =
         AddGridColumn (GridLength (w, GridUnitType.Pixel)) g
 
+    let AddGridRow h (grid : Grid) =
+        let gridRow = RowDefinition ()
+        gridRow.Height <- h
+        grid.RowDefinitions.Add gridRow
+        grid
+
+    let AddGridRow_Auto g =
+        AddGridRow GridLength.Auto g
+
+    let AddGridRow_Star w g =
+        AddGridRow (GridLength (w, GridUnitType.Star)) g
+
+    let AddGridRow_Pixel w g =
+        AddGridRow (GridLength (w, GridUnitType.Pixel)) g
+
     let AddGridChild ch c r (grid : Grid) =
-        ignore <| Grid.SetColumn    (ch, c)
-        ignore <| Grid.SetRow       (ch, r)
+        Grid.SetColumn  (ch, c)
+        Grid.SetRow     (ch, r)
         ignore <| grid.Children.Add ch
         grid
 
@@ -281,20 +317,20 @@ module internal Functions =
         else
             null
 
-    let UpdateLoadedAdorner (updater : FrameworkElement*AdornerLayer*#Adorner->unit, fe : FrameworkElement) =
+    let UpdateLoadedAdorner (updater : FrameworkElement*AdornerLayer*#Adorner -> unit, fe : FrameworkElement) =
         let layer   = AdornerLayer.GetAdornerLayer fe
         if layer <> null then
             let adorner = FindAdorner layer fe
             updater (fe, layer, adorner)
 
-    type DelayedAdornerUpdater<'Adorner when 'Adorner :> Adorner and 'Adorner : null>(updater : FrameworkElement*AdornerLayer*'Adorner->unit, fe : FrameworkElement) as this =
+    type DelayedAdornerUpdater<'Adorner when 'Adorner :> Adorner and 'Adorner : null>(updater : FrameworkElement*AdornerLayer*'Adorner -> unit, fe : FrameworkElement) as this =
         let onLoaded sender args =
             fe.Loaded.RemoveHandler this.OnLoaded
             UpdateLoadedAdorner (updater, fe)
 
         member this.OnLoaded = RoutedEventHandler onLoaded
 
-    let UpdateAdorner (updater : FrameworkElement*AdornerLayer*#Adorner->unit) (e : UIElement) : unit =
+    let UpdateAdorner (updater : FrameworkElement*AdornerLayer*#Adorner -> unit) (e : UIElement) : unit =
         match e with
         | :? FrameworkElement as fe ->
             if fe.IsLoaded then UpdateLoadedAdorner (updater, fe)
@@ -330,6 +366,26 @@ module internal Functions =
 
             member this.add_CanExecuteChanged(handler)      = CommandManager.RequerySuggested.AddHandler(handler)
             member this.remove_CanExecuteChanged(handler)   = CommandManager.RequerySuggested.RemoveHandler(handler)
+
+    let CreateBorder margin padding borderThickness borderBrush =
+        let border = Border()
+        border.Margin           <- margin
+        border.Padding          <- padding
+        border.BorderThickness  <- borderThickness
+        border.BorderBrush      <- borderBrush
+        border
+
+    let CreateLegendBorder () =
+        CreateBorder LegendBorderMargin LegendBorderPadding LegendBorderThickness LegendBorderBrush
+
+    let CreateGrid () =
+        let grid = Grid()
+        grid
+
+    let CreateDockPanel lastChildFill =
+        let dockPanel = DockPanel()
+        dockPanel.LastChildFill <- lastChildFill
+        dockPanel
 
     let CreateStackPanel orientation =
         let stackPanel = StackPanel()
@@ -414,9 +470,9 @@ module internal Functions =
 
     type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (dispatcher : Dispatcher) =
         let mutable isDispatching   = false
-        let queue                   = Queue<'DispatchEnum*(unit->unit)> ()
+        let queue                   = Queue<'DispatchEnum*(unit -> unit)> ()
 
-        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit->unit) =
+        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit -> unit) =
             dispatcher.VerifyAccess ()
             let isAlreadyDispatching = queue |> Seq.exists (fun (de,_) -> de = dispatchEnum)
             if not isAlreadyDispatching then

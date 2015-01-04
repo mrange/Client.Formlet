@@ -68,7 +68,7 @@ let TestEmptyValueProvider () =
 
     ()
 
-let RunTests (action : unit->unit) =
+let RunTests (action : unit -> unit) =
     try
         action ()
     with

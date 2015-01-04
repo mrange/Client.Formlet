@@ -20,11 +20,11 @@ open System
 open System.Collections.Generic
 open System.Windows.Forms
 
-module Functions = 
+module Functions =
     let HardFail msg            = failwith msg
     let HardFail_InvalidCase () = HardFail "FSharp.Client.Formlet.WindowsForms.ProgrammingError: This case shouldn't be reached"
 
-    let CopyChildren (c : Control) : ResizeArray<Control> = 
+    let CopyChildren (c : Control) : ResizeArray<Control> =
         let controls    = c.Controls
         let ra          = ResizeArray<Control> (controls.Count)
         for i in 0..(controls.Count - 1) do
@@ -48,9 +48,9 @@ module Functions =
 
     type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (control : Control) =
         let mutable isDispatching   = false
-        let queue                   = Queue<'DispatchEnum*(unit->unit)> ()
+        let queue                   = Queue<'DispatchEnum*(unit -> unit)> ()
 
-        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit->unit) =
+        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit -> unit) =
             let isAlreadyDispatching = queue |> Seq.exists (fun (de,_) -> de = dispatchEnum)
             if not isAlreadyDispatching then
                 queue.Enqueue(dispatchEnum, action)

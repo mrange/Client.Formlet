@@ -31,14 +31,27 @@ module Elements =
         do
             this.Margin <- DefaultMargin
 
+        static let cancelEvent      = CreateRoutedEvent<FormletElement> "Cancel"
         static let submitEvent      = CreateRoutedEvent<FormletElement> "Submit"
         static let resetEvent       = CreateRoutedEvent<FormletElement> "Reset"
 
+        static let nextEvent        = CreateRoutedEvent<FormletElement> "Next"
+        static let previousEvent    = CreateRoutedEvent<FormletElement> "Previous"
+
+
+        static member CancelEvent   = cancelEvent
         static member SubmitEvent   = submitEvent
         static member ResetEvent    = resetEvent
 
-        static member RaiseSubmit  (sender : UIElement) = RaiseRoutedEvent FormletElement.SubmitEvent   sender
-        static member RaiseReset   (sender : UIElement) = RaiseRoutedEvent FormletElement.ResetEvent    sender
+        static member NextEvent     = nextEvent
+        static member PreviousEvent = previousEvent
+
+        static member RaiseCancel   (sender : UIElement) = RaiseRoutedEvent FormletElement.CancelEvent sender
+        static member RaiseSubmit   (sender : UIElement) = RaiseRoutedEvent FormletElement.SubmitEvent sender
+        static member RaiseReset    (sender : UIElement) = RaiseRoutedEvent FormletElement.ResetEvent  sender
+
+        static member RaiseNext     (sender : UIElement) = RaiseRoutedEvent FormletElement.NextEvent     sender
+        static member RaisePrevious (sender : UIElement) = RaiseRoutedEvent FormletElement.PreviousEvent sender
 
         member this.RemoveChild (fe : UIElement) =
             if fe <> null then

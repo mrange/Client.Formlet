@@ -26,27 +26,43 @@ open Elements
 open InternalElements
 
 type FormletDispatchAction =
-    | Rebuild   = 1
-    | Submit    = 2
-    | Reset     = 3
+    | Rebuild   = 2
 
-type FormletContext () =
-    interface IFormletContext with
-        member this.PushTag tag     = ()
-        member this.PopTag ()       = ()
+[<AbstractClass>]
+type BaseFormletControl (uiElement : UIElement) =
+    inherit DecoratorElement (uiElement)
 
-type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) as this =
-    inherit DecoratorElement (scrollViewer)
+    abstract RebuildForm: unit -> unit
+    abstract ResetForm  : unit -> unit
+    abstract SubmitForm : unit -> unit
+    abstract CancelForm : unit -> unit
+
+type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
+                                ,   handleEvents    : bool
+                                ,   submit          : 'TValue -> unit
+                                ,   cancel          : unit -> unit
+                                ,   formlet         : Formlet<'TValue>
+                                ) as this =
+    inherit BaseFormletControl (scrollViewer)
 
     let queue                       = SingleDispatchQueue<FormletDispatchAction> (this.Dispatcher)
     let mutable formTree            = Empty
     let mutable changeGeneration    = 0
 
-    let onLoaded v = this.BuildForm ()
+    let onLoaded v = this.AsyncRebuildForm ()
+
+    let context     =
+        {
+            new FormletContext with
+                member x.PushTag t = ()
+                member x.PopTag () = ()
+        }
 
     do
-        AddRoutedEventHandler FormletElement.SubmitEvent   this this.OnSubmit
-        AddRoutedEventHandler FormletElement.ResetEvent    this this.OnReset
+        if handleEvents then
+            AddRoutedEventHandler FormletElement.SubmitEvent   this this.OnSubmit
+            AddRoutedEventHandler FormletElement.ResetEvent    this this.OnReset
+            AddRoutedEventHandler FormletElement.CancelEvent   this this.OnCancel
 
         scrollViewer.HorizontalScrollBarVisibility  <- ScrollBarVisibility.Disabled
         scrollViewer.VerticalScrollBarVisibility    <- ScrollBarVisibility.Visible
@@ -74,7 +90,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
     let createLayout () = LayoutElement ()
 
-    let rec buildTree (collection : IList<UIElement>) (position : int) (fl : FormletLayout) (ft : FormletTree<UIElement>) : int =
+    let rec buildTree (collection : IList<UIElement>) (position : int) (fl : FormletLayout) (ft : FormletTree) : int =
         let current = getElement collection position
 
         // TODO: Layout should be set
@@ -132,21 +148,15 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         | Cache (_, ft) ->
             buildTree collection position fl ft
 
-    let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
+    let cacheInvalidator () = this.AsyncRebuildForm ()
 
-    new (submit : 'TValue -> unit, formlet : Formlet<FormletContext, UIElement, 'TValue>) =
-        let scrollViewer = ScrollViewer ()
-        FormletControl (scrollViewer, submit, formlet)
+    member this.OnCancel    (sender : obj) (e : RoutedEventArgs) = this.CancelForm ()
+    member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = this.SubmitForm ()
+    member this.OnReset     (sender : obj) (e : RoutedEventArgs) = this.ResetForm ()
 
-    member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Submit   , this.SubmitForm)
-    member this.OnReset     (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
-
-    member this.ResetForm () =
-        formTree <- Empty
-        this.BuildForm ()
+    member this.AsyncRebuildForm ()= queue.Dispatch (FormletDispatchAction.Rebuild  , this.RebuildForm)
 
     member this.Evaluate () =
-        let context = FormletContext ()
         let c,ft    = formlet.Evaluate (context, cacheInvalidator, formTree)
         // TODO: "Dispose" visual elements that are no longer in tree
         formTree <- ft
@@ -156,13 +166,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         printfn "=============================================================="
         c,ft
 
-    member this.SubmitForm () =
-        let c,_ = this.Evaluate ()
-
-        if not c.HasFailures then
-            submit c.Value
-
-    member this.BuildForm () =
+    override this.RebuildForm () =
         let _,ft= this.Evaluate ()
         let cft = FormletTree.Layout (layout, ft)
         let lay = CreateElement scrollViewer.Content createLayout
@@ -181,3 +185,31 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         printfn "=============================================================="
 
         ()
+
+    override this.CancelForm () =
+        cancel ()
+
+    override this.ResetForm () =
+        formTree <- Empty
+        this.AsyncRebuildForm ()
+
+    override this.SubmitForm () =
+        let c,_ = this.Evaluate ()
+
+        if not c.HasFailures then
+            submit c.Value
+
+module FormletControl =
+
+    let Create  (submit  : 'TValue -> unit)
+                (cancel  : unit -> unit)
+                (formlet : Formlet<'TValue>) =
+        let scrollViewer = ScrollViewer ()
+        FormletControl<_> (scrollViewer, true, submit, cancel, formlet)
+
+    let CreateNonInteractive    (submit  : 'TValue -> unit)
+                                (cancel  : unit -> unit)
+                                (formlet : Formlet<'TValue>) =
+        let scrollViewer = ScrollViewer ()
+        FormletControl<_> (scrollViewer, false, submit, cancel, formlet)
+

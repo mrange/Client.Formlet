@@ -154,8 +154,8 @@ let Text initialText : Formlet<FormletContext, UIElement, string> =
     let eval (fc,cl,ft : FormletTree<UIElement>) =
         let e =
             match ft with
-            | Element (:? InputTextElement as e)-> e
-            | _                                 ->
+            | Element (:? InputTextElement as e) -> e
+            | _ ->
                 InputTextElement(initialText)
         e.ChangeNotifier <- cl
         (FormletResult.Success e.Text), Element (e :> UIElement)

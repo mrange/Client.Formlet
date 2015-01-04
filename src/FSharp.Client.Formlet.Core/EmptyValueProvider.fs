@@ -36,7 +36,7 @@ module EmptyValueProvider =
         | EmptyValue          of obj
         | EmptyValueCreator   of (unit -> obj)
 
-    type GenericProvidedValue = Type*Type->ProvidedValue
+    type GenericProvidedValue = Type*Type -> ProvidedValue
 
     let internal GetStaticMethodInfo (f : Expr<'T>) : MethodInfo =
         match f with
