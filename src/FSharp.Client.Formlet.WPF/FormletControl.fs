@@ -30,8 +30,20 @@ type FormletDispatchAction =
     | Submit    = 2
     | Reset     = 3
 
-type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> unit, formlet : Formlet<IFormletContext, UIElement, 'TValue>) as this =
-    inherit DecoratorElement (scrollViewer)
+type FormletContext = IFormletContext
+
+[<AbstractClass>]
+type FormletControl (uiElement : UIElement) as this =
+    inherit DecoratorElement (uiElement)
+
+    abstract ResetForm  : unit -> unit
+    abstract SubmitForm : unit -> unit
+
+type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
+                                ,   submit          : 'TValue -> unit
+                                ,   formlet         : Formlet<FormletContext, UIElement, 'TValue>
+                                ) as this =
+    inherit FormletControl (scrollViewer)
 
     let queue                       = SingleDispatchQueue<FormletDispatchAction> (this.Dispatcher)
     let mutable formTree            = Empty
@@ -41,7 +53,7 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
     let context     = 
         {
-            new IFormletContext with
+            new FormletContext with
                 member x.PushTag t = ()
                 member x.PopTag () = ()
         }
@@ -136,16 +148,15 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
 
     let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
 
-    new (submit : 'TValue -> unit, formlet : Formlet<IFormletContext, UIElement, 'TValue>) =
+    new (       submit  : 'TValue -> unit
+            ,   formlet : Formlet<FormletContext, UIElement, 'TValue>
+            ) =
         let scrollViewer = ScrollViewer ()
-        FormletControl (scrollViewer, submit, formlet)
+        FormletControl<_> (scrollViewer, submit, formlet)
 
     member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Submit   , this.SubmitForm)
     member this.OnReset     (sender : obj) (e : RoutedEventArgs) = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
 
-    member this.ResetForm () =
-        formTree <- Empty
-        this.BuildForm ()
 
     member this.Evaluate () =
         let c,ft    = formlet.Evaluate (context, cacheInvalidator, formTree)
@@ -156,12 +167,6 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         printfn "FormletTree: \n%A" formTree
         printfn "=============================================================="
         c,ft
-
-    member this.SubmitForm () =
-        let c,_ = this.Evaluate ()
-
-        if not c.HasFailures then
-            submit c.Value
 
     member this.BuildForm () =
         let _,ft= this.Evaluate ()
@@ -182,3 +187,14 @@ type FormletControl<'TValue> (scrollViewer : ScrollViewer, submit : 'TValue -> u
         printfn "=============================================================="
 
         ()
+
+    override this.ResetForm () =
+        formTree <- Empty
+        this.BuildForm ()
+
+    override this.SubmitForm () =
+        let c,_ = this.Evaluate ()
+
+        if not c.HasFailures then
+            submit c.Value
+

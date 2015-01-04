@@ -25,7 +25,12 @@ open FSharp.Client.Formlet.Core
 open Elements
 open InternalElements
 
-type FlowletControl<'TValue> (grid : Grid, submit : 'TValue -> unit, flowlet : Flowlet<IFlowletContext, UIElement, 'TValue>) as this =
+type FlowletContext = IFlowletContext<IFormletContext, UIElement>
+
+type FlowletControl<'TValue> (      grid    : Grid
+                                ,   submit  : 'TValue -> unit
+                                ,   flowlet : Flowlet<FlowletContext, FormletContext, UIElement, 'TValue>
+                                ) as this =
     inherit DecoratorElement (grid)
 
     let scrollViewer    = ScrollViewer()
@@ -33,13 +38,18 @@ type FlowletControl<'TValue> (grid : Grid, submit : 'TValue -> unit, flowlet : F
     let nextButton      = CreateButton "_Next"      "Click to goto next page"       this.CanGotoNext        this.GotoNext
     let stackPanel      = CreateStackPanel Orientation.Horizontal
 
-    let onLoaded v  = this.RunFlowlet ()
+    let onLoaded v      = this.RunFlowlet ()
 
-    let context     = 
+    let pages           = Stack<FormletControl>()
+
+    let context         = 
         {
-            new IFlowletContext with
-                member x.Show (f,cont) = 
-                    ()
+            new IFlowletContext<IFormletContext, UIElement> with
+                member x.Show (cont,f) = 
+                    let c           = f |> Enhance.WithErrorSummary
+                    let fc          = FormletControl<_>(cont,c) :> FormletControl
+                    pages.Push fc
+                    scrollViewer.Content <- fc
         }
 
     do
@@ -63,20 +73,28 @@ type FlowletControl<'TValue> (grid : Grid, submit : 'TValue -> unit, flowlet : F
 
         this.Loaded.Add onLoaded
 
-    new (submit : 'TValue -> unit, flowlet : Flowlet<IFlowletContext, UIElement, 'TValue>) =
+    new (       submit  : 'TValue -> unit
+            ,   flowlet : Flowlet<FlowletContext, FormletContext, UIElement, 'TValue>
+            ) =
         let grid = Grid ()
         FlowletControl (grid, submit, flowlet)
 
     member this.GotoPrevious ()     = FormletElement.RaisePrevious this
-    member this.CanGotoPrevious ()  = true
+    member this.CanGotoPrevious ()  = pages.Count > 1
 
     member this.GotoNext ()         = FormletElement.RaiseNext this
-    member this.CanGotoNext ()      = true
+    member this.CanGotoNext ()      = pages.Count > 0 // && validate
 
     member this.OnPrevious  (sender : obj) (e : RoutedEventArgs) = 
-        ()
+        if pages.Count > 1 then
+            ignore <| pages.Pop ()
+            let fc = pages.Peek ()
+            scrollViewer.Content <- fc
+
     member this.OnNext      (sender : obj) (e : RoutedEventArgs) = 
-        ()
+        if pages.Count > 0 then
+            let fc = pages.Peek ()
+            fc.SubmitForm ()
 
     member this.RunFlowlet () =
         flowlet.Continuation (context, submit, fun fc -> ())

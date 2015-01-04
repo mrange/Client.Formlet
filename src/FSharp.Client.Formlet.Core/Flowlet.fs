@@ -16,52 +16,54 @@
 
 namespace FSharp.Client.Formlet.Core
 
-type IFlowletContext =
-    abstract Show   : Formlet<'Context, 'Element, 'T>*('T -> unit) -> unit
+type IFlowletContext<'FormletContext, 'Element when 'FormletContext : not struct and 'FormletContext :> IFormletContext and 'Element : not struct> =
+    abstract Show   : ('T -> unit)*Formlet<'FormletContext, 'Element, 'T> -> unit
 
 type FlowletCompletion =
     | Cancelled
     | Completed
 
-type Flowlet<'Context, 'Element, 'T when 'Context : not struct and 'Context :> IFlowletContext and 'Element : not struct> =
+type Flowlet<'Context, 'FormletContext, 'Element, 'T when 'Context : not struct and 'Context :> IFlowletContext<'FormletContext, 'Element> and 'FormletContext : not struct and 'FormletContext :> IFormletContext and 'Element : not struct> =
     {
         Continuation : 'Context*('T -> unit)*(FlowletCompletion->unit) -> unit
     }
     static member New continuation = { Continuation = continuation }
 
-module FlowletMonad =
-    let inline New continuation : Flowlet<'Context, 'Element, 'T> = Flowlet<_,_,_>.New continuation
+    member this.Continue    = this.Continuation
 
-    let Zero () : Flowlet<'Context, 'Element, 'T> =
+module FlowletMonad =
+    let inline New continuation : Flowlet<'Context, 'FormletContext, 'Element, 'T> = Flowlet<_,_,_,_>.New continuation
+
+    let Zero () : Flowlet<'Context, 'FormletContext, 'Element, 'T> =
         let cont (ctx, success, completion) = success (EmptyValueProvider.GetEmptyValue<_> ())
 
         New cont
 
-    let Return (v : 'T) : Flowlet<'Context, 'Element, 'T> =
+    let Return (v : 'T) : Flowlet<'Context, 'FormletContext, 'Element, 'T> =
         let cont (ctx, success, completion) = success v
 
         New cont
 
-    let ReturnFrom (f : Flowlet<'Context, 'Element, 'T>) : Flowlet<'Context, 'Element, 'T> = f
+    let ReturnFrom (f : Flowlet<'Context, 'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'T> = f
 
-    let Delay (df : unit -> Flowlet<'Context, 'Element, 'T>) : Flowlet<'Context, 'Element, 'T> =
+    let Delay (df : unit -> Flowlet<'Context, 'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'T> =
         let cont (ctx, success, completion) = 
             let f = df ()
-            f.Continuation (ctx, success, completion)
+            f.Continue (ctx, success, completion)
 
         New cont
 
-    let Bind (f1 : Flowlet<'Context, 'Element, 'T1>) (u2 : 'T1 -> Flowlet<'Context, 'Element, 'T2>) : Flowlet<'Context, 'Element, 'T2> =
+    let Bind (f1 : Flowlet<'Context, 'FormletContext, 'Element, 'T1>) (u2 : 'T1 -> Flowlet<'Context, 'FormletContext, 'Element, 'T2>) : Flowlet<'Context, 'FormletContext, 'Element, 'T2> =
         let cont (ctx, success, completion) =
             let succ v1 = 
                 let f2 = u2 v1
-                f2.Continuation (ctx, success, completion)
+                f2.Continue (ctx, success, completion)
                 ()
-            f1.Continuation (ctx, succ, completion)
+            f1.Continue (ctx, succ, completion)
 
         New cont
 
-    let Run (f : Flowlet<'Context, 'Element, 'T>) : Flowlet<'Context, 'Element, 'T> = f
+    let Run (f : Flowlet<'Context, 'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'T> = f
 
     [<Sealed>]
     type FlowletBuilder () =
@@ -74,11 +76,12 @@ module FlowletMonad =
 
 
 module Flowlet =
-    let Show (f : Formlet<'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'Element, 'T> = 
-        let cont (ctx : IFlowletContext , success, completion) =
-            ctx.Show (f, success)
+    let Show (f : Formlet<'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'T> = 
+        let cont (ctx : 'Context, success, completion) =
+            ctx.Show (success, f)
 
         FlowletMonad.New cont
+    
 
 [<AutoOpen>]
 module FlowletAutoOpen =

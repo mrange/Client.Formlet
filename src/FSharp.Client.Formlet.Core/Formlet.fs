@@ -372,5 +372,4 @@ module Formlet =
 
 [<AutoOpen>]
 module FormletAutoOpen =
-
     let formlet = FormletMonad.FormletBuilder ()
