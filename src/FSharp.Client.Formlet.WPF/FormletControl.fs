@@ -31,9 +31,10 @@ type FormletDispatchAction =
     | Reset     = 3
 
 [<AbstractClass>]
-type FormletControl (uiElement : UIElement) as this =
+type BaseFormletControl (uiElement : UIElement) =
     inherit DecoratorElement (uiElement)
 
+    abstract RebuildForm: unit -> unit
     abstract ResetForm  : unit -> unit
     abstract SubmitForm : unit -> unit
 
@@ -41,13 +42,13 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
                                 ,   submit          : 'TValue -> unit
                                 ,   formlet         : Formlet<'TValue>
                                 ) as this =
-    inherit FormletControl (scrollViewer)
+    inherit BaseFormletControl (scrollViewer)
 
     let queue                       = SingleDispatchQueue<FormletDispatchAction> (this.Dispatcher)
     let mutable formTree            = Empty
     let mutable changeGeneration    = 0
 
-    let onLoaded v = this.BuildForm ()
+    let onLoaded v = this.AsyncRebuildForm ()
 
     let context     = 
         {
@@ -144,19 +145,14 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
         | Cache (_, ft) ->
             buildTree collection position fl ft
 
-    let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
-
-    new (       submit  : 'TValue -> unit
-            ,   formlet : Formlet<'TValue>
-            ) =
-        let scrollViewer = ScrollViewer ()
-        FormletControl<_> (scrollViewer, submit, formlet)
+    let cacheInvalidator () = this.AsyncRebuildForm ()
 
     member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = this.AsyncSubmitForm ()
-    member this.OnReset     (sender : obj) (e : RoutedEventArgs) = this.AsyncSubmitForm ()
+    member this.OnReset     (sender : obj) (e : RoutedEventArgs) = this.AsyncResetForm ()
 
     member this.AsyncSubmitForm () = queue.Dispatch (FormletDispatchAction.Submit   , this.SubmitForm)
     member this.AsyncResetForm ()  = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
+    member this.AsyncRebuildForm ()= queue.Dispatch (FormletDispatchAction.Rebuild  , this.RebuildForm)
 
     member this.Evaluate () =
         let c,ft    = formlet.Evaluate (context, cacheInvalidator, formTree)
@@ -168,7 +164,7 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
         printfn "=============================================================="
         c,ft
 
-    member this.BuildForm () =
+    override this.RebuildForm () =
         let _,ft= this.Evaluate ()
         let cft = FormletTree.Layout (layout, ft)
         let lay = CreateElement scrollViewer.Content createLayout
@@ -190,11 +186,18 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
 
     override this.ResetForm () =
         formTree <- Empty
-        this.BuildForm ()
+        this.RebuildForm ()
 
     override this.SubmitForm () =
         let c,_ = this.Evaluate ()
 
         if not c.HasFailures then
             submit c.Value
+
+module FormletControl =
+
+    let Create (submit  : 'TValue -> unit) 
+               (formlet : Formlet<'TValue>) =
+        let scrollViewer = ScrollViewer ()
+        FormletControl<_> (scrollViewer, submit, formlet)
 

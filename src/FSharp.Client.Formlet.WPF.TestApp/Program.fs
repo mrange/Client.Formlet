@@ -198,8 +198,8 @@ module Main =
 
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
-//        window.Content <- FormletControl(submit, complete)
-        window.Content <- FlowletControl(submit, sampleFlow)
+//        window.Content <- FormletControl.Create submit complete
+        window.Content <- FlowletControl.Create submit Enhance.WithErrorSummary flow
 
         ignore <| window.ShowDialog ()
 

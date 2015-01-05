@@ -25,11 +25,21 @@ open FSharp.Client.Formlet.Core
 open Elements
 open InternalElements
 
+type IFlowletPageEnhancer =
+    interface 
+        abstract Enhance<'T> : Formlet<'T> -> Formlet<'T>
+    end
+
+[<AbstractClass>]
+type BaseFlowletControl (uiElement : UIElement) =
+    inherit DecoratorElement (uiElement)
+
 type FlowletControl<'TValue> (      grid    : Grid
                                 ,   submit  : 'TValue -> unit
+                                ,   enhancer: IFlowletPageEnhancer
                                 ,   flowlet : Flowlet<'TValue>
                                 ) as this =
-    inherit DecoratorElement (grid)
+    inherit BaseFlowletControl (grid)
 
     let scrollViewer    = ScrollViewer()
     let previousButton  = CreateButton "_Previous"  "Click to goto previous page"   this.CanGotoPrevious    this.GotoPrevious
@@ -38,14 +48,14 @@ type FlowletControl<'TValue> (      grid    : Grid
 
     let onLoaded v      = this.RunFlowlet ()
 
-    let pages           = Stack<FormletControl>()
+    let pages           = Stack<BaseFormletControl>()
 
     let context         = 
         {
             new FlowletContext with
                 member x.Show (cont,f) = 
-                    let c           = f |> Enhance.WithErrorSummary
-                    let fc          = FormletControl<_>(cont,c) :> FormletControl
+                    let ef  = enhancer.Enhance f
+                    let fc  = FormletControl.Create cont ef :> BaseFormletControl
                     pages.Push fc
                     scrollViewer.Content <- fc
         }
@@ -71,12 +81,6 @@ type FlowletControl<'TValue> (      grid    : Grid
 
         this.Loaded.Add onLoaded
 
-    new (       submit  : 'TValue -> unit
-            ,   flowlet : Flowlet<'TValue>
-            ) =
-        let grid = Grid ()
-        FlowletControl (grid, submit, flowlet)
-
     member this.GotoPrevious ()     = FormletElement.RaisePrevious this
     member this.CanGotoPrevious ()  = pages.Count > 1
 
@@ -88,6 +92,7 @@ type FlowletControl<'TValue> (      grid    : Grid
             ignore <| pages.Pop ()
             let fc = pages.Peek ()
             scrollViewer.Content <- fc
+            fc.RebuildForm ()
 
     member this.OnNext      (sender : obj) (e : RoutedEventArgs) = 
         if pages.Count > 0 then
@@ -96,3 +101,18 @@ type FlowletControl<'TValue> (      grid    : Grid
 
     member this.RunFlowlet () =
         flowlet.Continuation (context, submit, fun fc -> ())
+
+module FlowletControl = 
+    let Create (submit  : 'TValue -> unit)  
+               (enhancer: Formlet<'T> -> Formlet<'T>)
+               (flowlet : Flowlet<'TValue>) =
+
+        let enh = 
+            {
+                new IFlowletPageEnhancer with
+                    member x.Enhance (f : Formlet<'U>) : Formlet<'U> = 
+                        Enhance.WithErrorSummary f
+            }
+
+        let grid = Grid ()
+        FlowletControl (grid, submit, enh, flowlet)
