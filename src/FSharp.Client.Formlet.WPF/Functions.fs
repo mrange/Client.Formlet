@@ -237,7 +237,7 @@ module internal Functions =
     let AddGridRow_Pixel w g =
         AddGridRow (GridLength (w, GridUnitType.Pixel)) g
 
-    let AddPanelChild ch (panel : Panel) = 
+    let AddPanelChild ch (panel : Panel) =
         ignore <| panel.Children.Add ch
         panel
 

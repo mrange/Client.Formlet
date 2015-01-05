@@ -159,21 +159,26 @@ module Main =
                 }
                 |> Enhance.WithLegend lbl
 
+            let invoiceAddress hasInvoiceAddress =
+                formlet {
+                    if hasInvoiceAddress then
+                        let! add = address "Invoice Address"
+                        return Some add
+                    else
+                        return None
+                }
+
             formlet {
                 let! deliveryAddress    = address "Delivery Address"
                 let! hasInvoiceAddress  = YesNo "Separate invoice/delivery address?" (Some false)
-                let! invoiceAddress     =
-                    if hasInvoiceAddress then
-                        address "Invoice Address" |> Formlet.Map Some
-                    else
-                        Formlet.Return None
+                let! invoiceAddress     = invoiceAddress hasInvoiceAddress
                 return deliveryAddress, invoiceAddress
             }
 
         let complete = full |> Enhance.WithErrorSummary
 
-        let sampleFlow = 
-            let get result = 
+        let sampleFlow =
+            let get result =
                 flowlet {
                     if result then
                         let! firstName, lastName, birthDate = Flowlet.Show person
@@ -188,7 +193,7 @@ module Main =
                 return res
             }
 
-        let flow = 
+        let flow =
             flowlet {
                 let! firstName, lastName, birthDate = Flowlet.Show person
                 let! addresses                      = Flowlet.Show addresses

@@ -40,7 +40,7 @@ module Elements =
         static member SubmitEvent   = submitEvent
         static member ResetEvent    = resetEvent
 
-        static member NextEvent     = nextEvent    
+        static member NextEvent     = nextEvent
         static member PreviousEvent = previousEvent
 
         static member RaiseSubmit   (sender : UIElement) = RaiseRoutedEvent FormletElement.SubmitEvent sender

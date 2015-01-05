@@ -16,6 +16,9 @@
 
 namespace FSharp.Client.Formlet.Core
 
+
+/// IFormletContext allows adaptations to provide Flowlet-wide Context
+///  Show displays a formlet
 type IFlowletContext<'FormletContext, 'Element when 'FormletContext : not struct and 'FormletContext :> IFormletContext and 'Element : not struct> =
     abstract Show   : ('T -> unit)*Formlet<'FormletContext, 'Element, 'T> -> unit
 
@@ -23,6 +26,8 @@ type FlowletCompletion =
     | Cancelled
     | Completed
 
+/// Flowlet is basically a continuation monad
+///  Note: As the flowlet might go back and forth between formlet pages flowlets shouldn't have side-effects
 type Flowlet<'Context, 'FormletContext, 'Element, 'T when 'Context : not struct and 'Context :> IFlowletContext<'FormletContext, 'Element> and 'FormletContext : not struct and 'FormletContext :> IFormletContext and 'Element : not struct> =
     {
         Continuation : 'Context*('T -> unit)*(FlowletCompletion->unit) -> unit
@@ -47,7 +52,7 @@ module FlowletMonad =
     let ReturnFrom (f : Flowlet<'Context, 'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'T> = f
 
     let Delay (df : unit -> Flowlet<'Context, 'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'T> =
-        let cont (ctx, success, completion) = 
+        let cont (ctx, success, completion) =
             let f = df ()
             f.Continue (ctx, success, completion)
 
@@ -55,7 +60,7 @@ module FlowletMonad =
 
     let Bind (f1 : Flowlet<'Context, 'FormletContext, 'Element, 'T1>) (u2 : 'T1 -> Flowlet<'Context, 'FormletContext, 'Element, 'T2>) : Flowlet<'Context, 'FormletContext, 'Element, 'T2> =
         let cont (ctx, success, completion) =
-            let succ v1 = 
+            let succ v1 =
                 let f2 = u2 v1
                 f2.Continue (ctx, success, completion)
                 ()
@@ -76,12 +81,22 @@ module FlowletMonad =
 
 
 module Flowlet =
-    let Show (f : Formlet<'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'T> = 
+    /// Map maps the value of a Flowlet from one type into another type
+    let Map (m : 'T -> 'U) (f : Flowlet<'Context, 'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'U> =
+        let cont (ctx : 'Context, success, completion) =
+            let succ (v : 'T)  =
+                success (m v)
+            f.Continue (ctx, succ, completion)
+
+        FlowletMonad.New cont
+
+    /// Shows a Formlet as a page
+    let Show (f : Formlet<'FormletContext, 'Element, 'T>) : Flowlet<'Context, 'FormletContext, 'Element, 'T> =
         let cont (ctx : 'Context, success, completion) =
             ctx.Show (success, f)
 
         FlowletMonad.New cont
-    
+
 
 [<AutoOpen>]
 module FlowletAutoOpen =

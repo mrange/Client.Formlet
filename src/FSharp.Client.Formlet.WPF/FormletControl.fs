@@ -50,7 +50,7 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
 
     let onLoaded v = this.AsyncRebuildForm ()
 
-    let context     = 
+    let context     =
         {
             new FormletContext with
                 member x.PushTag t = ()
@@ -196,7 +196,7 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
 
 module FormletControl =
 
-    let Create (submit  : 'TValue -> unit) 
+    let Create (submit  : 'TValue -> unit)
                (formlet : Formlet<'TValue>) =
         let scrollViewer = ScrollViewer ()
         FormletControl<_> (scrollViewer, submit, formlet)

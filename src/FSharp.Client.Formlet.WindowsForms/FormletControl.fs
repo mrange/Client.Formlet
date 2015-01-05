@@ -124,12 +124,12 @@ type FormletControl<'TValue> (submit : 'TValue -> unit, formlet : Formlet<Formle
 
     let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
 
-    override this.OnCreateControl () = 
+    override this.OnCreateControl () =
         base.OnCreateControl ()
 
         this.BuildForm ()
 
-    override this.OnClientSizeChanged e = 
+    override this.OnClientSizeChanged e =
         base.OnClientSizeChanged e
 
         let cur = this.LayoutControl
@@ -176,12 +176,12 @@ type FormletControl<'TValue> (submit : 'TValue -> unit, formlet : Formlet<Formle
 
         ()
 
-    member this.LayoutControl 
-        with get ()  : LayoutControl    = 
+    member this.LayoutControl
+        with get ()  : LayoutControl    =
             if this.Controls.Count > 0 then this.Controls.[0] :?> LayoutControl else null
-        and  set (lc : LayoutControl )  = 
+        and  set (lc : LayoutControl )  =
             this.Controls.Clear ()
-            if lc <> null then 
+            if lc <> null then
                 lc.ClientSize <- lc.ClientSize
                 this.Controls.Add lc
 

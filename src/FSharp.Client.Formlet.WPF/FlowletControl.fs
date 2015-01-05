@@ -26,7 +26,7 @@ open Elements
 open InternalElements
 
 type IFlowletPageEnhancer =
-    interface 
+    interface
         abstract Enhance<'T> : Formlet<'T> -> Formlet<'T>
     end
 
@@ -50,10 +50,10 @@ type FlowletControl<'TValue> (      grid    : Grid
 
     let pages           = Stack<BaseFormletControl>()
 
-    let context         = 
+    let context         =
         {
             new FlowletContext with
-                member x.Show (cont,f) = 
+                member x.Show (cont,f) =
                     let ef  = enhancer.Enhance f
                     let fc  = FormletControl.Create cont ef :> BaseFormletControl
                     pages.Push fc
@@ -87,14 +87,14 @@ type FlowletControl<'TValue> (      grid    : Grid
     member this.GotoNext ()         = FormletElement.RaiseNext this
     member this.CanGotoNext ()      = pages.Count > 0 // && validate
 
-    member this.OnPrevious  (sender : obj) (e : RoutedEventArgs) = 
+    member this.OnPrevious  (sender : obj) (e : RoutedEventArgs) =
         if pages.Count > 1 then
             ignore <| pages.Pop ()
             let fc = pages.Peek ()
             scrollViewer.Content <- fc
             fc.RebuildForm ()
 
-    member this.OnNext      (sender : obj) (e : RoutedEventArgs) = 
+    member this.OnNext      (sender : obj) (e : RoutedEventArgs) =
         if pages.Count > 0 then
             let fc = pages.Peek ()
             fc.SubmitForm ()
@@ -102,15 +102,15 @@ type FlowletControl<'TValue> (      grid    : Grid
     member this.RunFlowlet () =
         flowlet.Continuation (context, submit, fun fc -> ())
 
-module FlowletControl = 
-    let Create (submit  : 'TValue -> unit)  
+module FlowletControl =
+    let Create (submit  : 'TValue -> unit)
                (enhancer: Formlet<'T> -> Formlet<'T>)
                (flowlet : Flowlet<'TValue>) =
 
-        let enh = 
+        let enh =
             {
                 new IFlowletPageEnhancer with
-                    member x.Enhance (f : Formlet<'U>) : Formlet<'U> = 
+                    member x.Enhance (f : Formlet<'U>) : Formlet<'U> =
                         Enhance.WithErrorSummary f
             }
 

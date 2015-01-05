@@ -197,3 +197,20 @@ module Enhance =
             c, Adorner (ese :> UIElement, list, nift)
 
         FormletMonad.New eval
+
+    let WithErrorSummary (f : Formlet<'T>) : Formlet<'T> =
+        let eval (fc,cl,ft : FormletTree) =
+            let ese, list, ift =
+                match ft with
+                | Adorner ((:? ErrorSummaryElement as ese), list, ft) ->
+                    ese, list, ft
+                | _                         ->
+                    let ese = ErrorSummaryElement ()
+                    let list= ese.ChildCollection
+                    ese, list, Empty
+
+            let c,nift = f.Evaluate (fc, cl, ift)
+            ese.Failures <- c.Failures
+            c, Adorner (ese :> UIElement, list, nift)
+
+        FormletMonad.New eval

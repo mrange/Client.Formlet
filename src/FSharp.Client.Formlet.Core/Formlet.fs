@@ -251,9 +251,7 @@ module FormletMonad =
         member this.Zero        ()      = Zero          ()
 
 module Formlet =
-
-    let inline Return v = FormletMonad.Return v
-
+    /// Failures returns the current list of FormletFailures
     let Failures (f : Formlet<'Context, 'Element, _>) : Formlet<'Context, 'Element, FormletFailure list> =
         let eval (fc,cl,ft) =
             let c,nft = f.Evaluate (fc,cl,ft)
