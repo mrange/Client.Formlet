@@ -30,8 +30,6 @@ type FormletDispatchAction =
     | Submit    = 2
     | Reset     = 3
 
-type FormletContext = IFormletContext
-
 [<AbstractClass>]
 type FormletControl (uiElement : UIElement) as this =
     inherit DecoratorElement (uiElement)
@@ -41,7 +39,7 @@ type FormletControl (uiElement : UIElement) as this =
 
 type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
                                 ,   submit          : 'TValue -> unit
-                                ,   formlet         : Formlet<FormletContext, UIElement, 'TValue>
+                                ,   formlet         : Formlet<'TValue>
                                 ) as this =
     inherit FormletControl (scrollViewer)
 
@@ -88,7 +86,7 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
 
     let createLayout () = LayoutElement ()
 
-    let rec buildTree (collection : IList<UIElement>) (position : int) (fl : FormletLayout) (ft : FormletTree<UIElement>) : int =
+    let rec buildTree (collection : IList<UIElement>) (position : int) (fl : FormletLayout) (ft : FormletTree) : int =
         let current = getElement collection position
 
         // TODO: Layout should be set
@@ -149,7 +147,7 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
     let cacheInvalidator () = queue.Dispatch (FormletDispatchAction.Rebuild  , this.BuildForm)
 
     new (       submit  : 'TValue -> unit
-            ,   formlet : Formlet<FormletContext, UIElement, 'TValue>
+            ,   formlet : Formlet<'TValue>
             ) =
         let scrollViewer = ScrollViewer ()
         FormletControl<_> (scrollViewer, submit, formlet)

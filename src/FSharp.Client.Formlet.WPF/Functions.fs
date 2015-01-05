@@ -31,6 +31,12 @@ open System.Windows.Threading
 
 open FSharp.Client.Formlet.Core
 
+type FormletContext = IFormletContext
+type FormletTree    = FormletTree<UIElement>
+type Formlet<'T>    = Formlet<FormletContext, UIElement, 'T>
+type FlowletContext = IFlowletContext<IFormletContext, UIElement>
+type Flowlet<'T>    = Flowlet<FlowletContext, FormletContext, UIElement, 'T>
+
 [<AutoOpen>]
 module internal Functions =
 

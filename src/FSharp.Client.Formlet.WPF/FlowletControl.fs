@@ -25,11 +25,9 @@ open FSharp.Client.Formlet.Core
 open Elements
 open InternalElements
 
-type FlowletContext = IFlowletContext<IFormletContext, UIElement>
-
 type FlowletControl<'TValue> (      grid    : Grid
                                 ,   submit  : 'TValue -> unit
-                                ,   flowlet : Flowlet<FlowletContext, FormletContext, UIElement, 'TValue>
+                                ,   flowlet : Flowlet<'TValue>
                                 ) as this =
     inherit DecoratorElement (grid)
 
@@ -44,7 +42,7 @@ type FlowletControl<'TValue> (      grid    : Grid
 
     let context         = 
         {
-            new IFlowletContext<IFormletContext, UIElement> with
+            new FlowletContext with
                 member x.Show (cont,f) = 
                     let c           = f |> Enhance.WithErrorSummary
                     let fc          = FormletControl<_>(cont,c) :> FormletControl
@@ -74,7 +72,7 @@ type FlowletControl<'TValue> (      grid    : Grid
         this.Loaded.Add onLoaded
 
     new (       submit  : 'TValue -> unit
-            ,   flowlet : Flowlet<FlowletContext, FormletContext, UIElement, 'TValue>
+            ,   flowlet : Flowlet<'TValue>
             ) =
         let grid = Grid ()
         FlowletControl (grid, submit, flowlet)

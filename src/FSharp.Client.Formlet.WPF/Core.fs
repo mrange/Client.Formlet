@@ -25,8 +25,8 @@ open InternalElements
 
 module Input =
 
-    let Text initialText : Formlet<FormletContext, UIElement, string> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let Text initialText : Formlet<string> =
+        let eval (fc,cl,ft : FormletTree) =
             let e =
                 match ft with
                 | Element (:? InputTextElement as e)-> e
@@ -51,8 +51,8 @@ module Input =
         |> Formlet.MapResult map
         |> FormletMonad.Cache
 
-    let DateTime (initialDateTime : DateTime option) : Formlet<FormletContext, UIElement, DateTime> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let DateTime (initialDateTime : DateTime option) : Formlet<DateTime> =
+        let eval (fc,cl,ft : FormletTree) =
             let e =
                 match ft with
                 | Element (:? InputDateTimeElement as e)-> e
@@ -70,8 +70,8 @@ module Input =
 
         FormletMonad.New eval
 
-    let Option (initial : int) (options : (string * 'T) []) : Formlet<FormletContext, UIElement, 'T option> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let Option (initial : int) (options : (string * 'T) []) : Formlet<'T option> =
+        let eval (fc,cl,ft : FormletTree) =
             let e =
                 match ft with
                 | Element (:? InputOptionElement<'T> as e)-> e
@@ -89,8 +89,8 @@ module Input =
 
         FormletMonad.New eval
 
-    let TriState (label : string) (initial : bool option): Formlet<FormletContext, UIElement, bool option> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let TriState (label : string) (initial : bool option): Formlet<bool option> =
+        let eval (fc,cl,ft : FormletTree) =
             let e =
                 match ft with
                 | Element (:? InputTriStateElement as e)-> e
@@ -104,8 +104,8 @@ module Input =
 
 module Enhance =
 
-    let Many (initialCount : int) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T[]> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let Many (initialCount : int) (f : Formlet<'T>) : Formlet<'T[]> =
+        let eval (fc,cl,ft : FormletTree) =
             let me, adorners =
                 match ft with
                 | Many ((:? ManyElement as me), adorners)   ->
@@ -134,8 +134,8 @@ module Enhance =
 
         FormletMonad.New eval
 
-    let WithLabel (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let WithLabel (l : string) (f : Formlet<'T>) : Formlet<'T> =
+        let eval (fc,cl,ft : FormletTree) =
             let (le, list, ift) =
                 match ft with
                 | Adorner ((:? LabelElement as le), list, ft)   ->
@@ -152,8 +152,8 @@ module Enhance =
         FormletMonad.New eval
 
 
-    let WithErrorVisual (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let WithErrorVisual (f : Formlet<'T>) : Formlet<'T> =
+        let eval (fc,cl,ft : FormletTree) =
             let ift =
                 match ft with
                 | Modify (_,ft)  -> ft
@@ -164,8 +164,8 @@ module Enhance =
 
         FormletMonad.New eval
 
-    let WithLegend (l : string) (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let WithLegend (l : string) (f : Formlet<'T>) : Formlet<'T> =
+        let eval (fc,cl,ft : FormletTree) =
             let le, list, ift =
                 match ft with
                 | Adorner ((:? LegendElement as le), list, ft) ->
@@ -181,8 +181,8 @@ module Enhance =
 
         FormletMonad.New eval
 
-    let WithErrorSummary (f : Formlet<FormletContext, UIElement, 'T>) : Formlet<FormletContext, UIElement, 'T> =
-        let eval (fc,cl,ft : FormletTree<UIElement>) =
+    let WithErrorSummary (f : Formlet<'T>) : Formlet<'T> =
+        let eval (fc,cl,ft : FormletTree) =
             let ese, list, ift =
                 match ft with
                 | Adorner ((:? ErrorSummaryElement as ese), list, ft) ->

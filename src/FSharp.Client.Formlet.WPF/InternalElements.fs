@@ -391,17 +391,17 @@ module internal InternalElements =
     type FormletElement () =
         inherit LayoutElement ()
 
-        member val FormletTree : FormletTree<UIElement> = Empty with get,set
+        member val FormletTree : FormletTree = Empty with get,set
 
     type AdornersAdapter(adorners : ObservableCollection<FormletElement>) =
 
-        let enumerator : seq<IList<UIElement>*FormletTree<UIElement>> =
+        let enumerator : seq<IList<UIElement>*FormletTree> =
             seq {
                 for adorner in adorners do
                     yield adorner.ChildCollection, adorner.FormletTree
             }
 
-        interface IReadOnlyList<IList<UIElement>*FormletTree<UIElement>> with
+        interface IReadOnlyList<IList<UIElement>*FormletTree> with
             member this.Count       = adorners.Count
 
             member this.Item
@@ -465,7 +465,7 @@ module internal InternalElements =
         ScrollViewer.SetHorizontalScrollBarVisibility(listBox, ScrollBarVisibility.Disabled)
         listBox
 
-    let CreateManyElements initialCount : FormletListBox*IReadOnlyList<IList<UIElement>*FormletTree<UIElement>>*Panel =
+    let CreateManyElements initialCount : FormletListBox*IReadOnlyList<IList<UIElement>*FormletTree>*Panel =
         let listBox         = CreateFormletListBox initialCount
 
         let buttons         = CreateStackPanel Orientation.Horizontal
