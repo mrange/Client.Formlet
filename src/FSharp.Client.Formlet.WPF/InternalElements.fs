@@ -213,6 +213,17 @@ module internal InternalElements =
 
         override this.ModifyArrange r    =  Rect (r.X + labelWidth, r.Y, r.Width, r.Height)
 
+    type StaticTextElement(text : string, minLines : int) as this =
+        inherit TextBox()
+
+        do
+            this.Text           <- text
+            this.Margin         <- DefaultMargin
+            this.IsReadOnly     <- true
+            this.AcceptsReturn  <- true
+            this.MinLines       <- minLines
+
+
     type InputTextElement(initialText : string) as this =
         inherit TextBox()
 
@@ -473,9 +484,9 @@ module internal InternalElements =
         let newButton       = CreateButton "_New" "Click to create another item" listBox.CanAddNew listBox.AddNew
         let deleteButton    = CreateButton "_Delete" "Click to delete the currently selected items" listBox.CanDeleteSelection listBox.DeleteSelection
         buttons
-            |> AddPanelChild newButton
-            |> AddPanelChild deleteButton
-            |> ignore
+        |> AddPanelChild newButton
+        |> AddPanelChild deleteButton
+        |> ignore
         listBox, upcast listBox.Adorners, upcast buttons
 
     type ManyElement(initialCount : int, value : StackPanel) =
@@ -485,9 +496,9 @@ module internal InternalElements =
 
         do
             value
-                |> AddPanelChild buttons
-                |> AddPanelChild listBox
-                |> ignore
+            |> AddPanelChild buttons
+            |> AddPanelChild listBox
+            |> ignore
 
         new (initialCount : int) =
             ManyElement (initialCount, CreateStackPanel Orientation.Vertical)
@@ -506,9 +517,9 @@ module internal InternalElements =
         let border              = CreateLegendBorder ()
         let outer               = CreateGrid ()
         outer
-            |> AddGridChild border  0   0
-            |> AddGridChild label   0   0
-            |> ignore
+        |> AddGridChild border  0   0
+        |> AddGridChild label   0   0
+        |> ignore
         upcast outer, label, upcast border
 
     type LegendElement(outer : UIElement, label : TextBox, inner : Decorator) =
@@ -567,15 +578,15 @@ module internal InternalElements =
             label.FontFamily        <- DefaultFontFamily
 
             grid
-                |>  AddGridColumn_Star          1.0
-                |>  AddGridColumn_Pixel         4.0
-                |>  AddGridColumn_Pixel         4.0
-                |>  AddGridColumn_Auto
-                |>  AddGridColumn_Pixel         8.0
-                |>  AddGridChild label          0   0
-                |>  AddGridChild okSymbol       3   0
-                |>  AddGridChild errorSymbol    3   0
-                |>  ignore
+            |>  AddGridColumn_Star          1.0
+            |>  AddGridColumn_Pixel         4.0
+            |>  AddGridColumn_Pixel         4.0
+            |>  AddGridColumn_Auto
+            |>  AddGridColumn_Pixel         8.0
+            |>  AddGridChild label          0   0
+            |>  AddGridChild okSymbol       3   0
+            |>  AddGridChild errorSymbol    3   0
+            |>  ignore
 
 
             border.Background       <- okBackgroundBrush
@@ -584,14 +595,14 @@ module internal InternalElements =
 
             if summaryOnTop then
                 sp
-                    |> AddPanelChild border
-                    |> AddPanelChild container
-                    |> ignore
+                |> AddPanelChild border
+                |> AddPanelChild container
+                |> ignore
             else
                 sp
-                    |> AddPanelChild container
-                    |> AddPanelChild border
-                    |> ignore
+                |> AddPanelChild container
+                |> AddPanelChild border
+                |> ignore
 
         new (summaryOnTop : bool) =
             let sp = CreateStackPanel Orientation.Vertical
@@ -646,7 +657,7 @@ module internal InternalElements =
 
         member this.ChildCollection = container.ChildCollection
 
-    type SubmitButtonsElement(sp : StackPanel) as this =
+    type SubmitButtonsElement(sp : StackPanel, showResetButton : bool) as this =
         inherit DecoratorElement(sp)
 
         let cancelButton= CreateButton "_Cancel" "Click to cancel form" this.CanCancel  this.Cancel
@@ -660,19 +671,19 @@ module internal InternalElements =
 
         do
             buttons
-                |> AddDockChild submitButton    Dock.Right
-                |> AddDockChild resetButton     Dock.Right
-                |> AddDockChild cancelButton    Dock.Left
-                |> ignore
+            |> AddDockChild                     submitButton    Dock.Right
+            |> AddDockChild_If showResetButton  resetButton     Dock.Right
+            |> AddDockChild                     cancelButton    Dock.Left
+            |> ignore
 
             sp
-                |> AddPanelChild container
-                |> AddPanelChild buttons
-                |> ignore
+            |> AddPanelChild container
+            |> AddPanelChild buttons
+            |> ignore
 
-        new () =
+        new (showResetButton : bool) =
             let sp = CreateStackPanel Orientation.Vertical
-            SubmitButtonsElement sp
+            SubmitButtonsElement (sp, showResetButton)
 
         member this.Failures
             with get () = failures
@@ -691,7 +702,7 @@ module internal InternalElements =
 
         member this.ChildCollection = container.ChildCollection
 
-    type FlowButtonsElement(sp : StackPanel) as this =
+    type NavigationButtonsElement(sp : StackPanel) as this =
         inherit DecoratorElement(sp)
 
         let cancelButton    = CreateButton "_Cancel"    "Click to cancel guide"         this.CanCancel      this.Cancel
@@ -704,32 +715,30 @@ module internal InternalElements =
         let buttons     = CreateDockPanel false
 
         let mutable failures    : FormletFailure list = []
-        let mutable hasPrevious = false
         let mutable pageNo      = 1
 
         do
             buttons
-                |> AddDockChild submitButton    Dock.Right
-                |> AddDockChild resetButton     Dock.Right
-                |> AddDockChild nextButton      Dock.Right
-                |> AddDockChild previousButton  Dock.Right
-                |> AddDockChild cancelButton    Dock.Left
-                |> ignore
+            |> AddDockChild submitButton    Dock.Right
+            |> AddDockChild resetButton     Dock.Right
+            |> AddDockChild nextButton      Dock.Right
+            |> AddDockChild previousButton  Dock.Right
+            |> AddDockChild cancelButton    Dock.Left
+            |> ignore
 
             sp
-                |> AddPanelChild container
-                |> AddPanelChild buttons
-                |> ignore
+            |> AddPanelChild container
+            |> AddPanelChild buttons
+            |> ignore
 
         new () =
             let sp = CreateStackPanel Orientation.Vertical
-            FlowButtonsElement sp
+            NavigationButtonsElement sp
 
         member this.State
-            with get ()             = failures, hasPrevious, pageNo
-            and  set (fs, hp,pno)   =
+            with get ()         = failures,pageNo
+            and  set (fs,pno)   =
                 failures    <- fs
-                hasPrevious <- hp
                 pageNo      <- pno
                 CommandManager.InvalidateRequerySuggested()
 

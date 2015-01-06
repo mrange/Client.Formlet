@@ -216,6 +216,12 @@ module internal Functions =
         ignore <| dockPanel.Children.Add ch
         dockPanel
 
+    let AddDockChild_If condition ch (dock : Dock) (dockPanel : DockPanel) =
+        if condition then
+            DockPanel.SetDock (ch, dock)
+            ignore <| dockPanel.Children.Add ch
+        dockPanel
+
     let AddGridColumn w (grid : Grid) =
         let gridColumn = ColumnDefinition ()
         gridColumn.Width <- w

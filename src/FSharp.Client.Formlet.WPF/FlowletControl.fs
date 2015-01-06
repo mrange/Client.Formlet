@@ -33,6 +33,7 @@ type FlowletControl<'TValue> (      border  : Border
                                 ,   submit  : 'TValue -> unit
                                 ,   cancel  : unit -> unit
                                 ,   flowlet : Flowlet<'TValue>
+                                ,   flast   : 'TValue -> int -> Formlet<'TValue>
                                 ) as this =
     inherit BaseFlowletControl (border)
 
@@ -91,14 +92,20 @@ type FlowletControl<'TValue> (      border  : Border
             let fc = pages.Peek ()
             fc.SubmitForm ()
 
+    member this.LastPage (v : 'TValue, pageNo : int) =
+        let last    = flast v pageNo
+        let fc      = FormletControl.CreateNonInteractive submit cancel last :> BaseFormletControl
+        pages.Push fc
+        border.Child <- fc
+
     member this.RunFlowlet () =
-        let s (v,pageNo) = submit v
-        flowlet.Continuation (context, 1, s)
+        flowlet.Continuation (context, 1, this.LastPage)
 
 module FlowletControl =
     let Create  (submit  : 'TValue -> unit)
                 (cancel  : unit -> unit)
-                (flowlet : Flowlet<'TValue>) =
+                (flowlet : Flowlet<'TValue>)
+                (flast   : 'TValue -> int -> Formlet<'TValue>) =
 
         let border = Border ()
-        FlowletControl (border, submit, cancel, flowlet)
+        FlowletControl (border, submit, cancel, flowlet, flast)

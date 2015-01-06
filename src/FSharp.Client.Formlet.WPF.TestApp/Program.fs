@@ -179,9 +179,14 @@ module Main =
 
         let showPage (f : Formlet<'T>) = 
             f 
-                |> Enhance.WithErrorSummary true
-                |> Enhance.WithFlowButtons 
-                |> Flowlet.Show
+            |> Enhance.WithErrorSummary true
+            |> EnhancePage.WithNavigationButtons
+            |> Flowlet.Show
+
+        let lastPage (f : Formlet<'T>) =
+            f 
+            |> EnhancePage.WithNavigationButtons
+            |> Flowlet.Show
 
 (*
         let sampleFlow =
@@ -208,11 +213,19 @@ module Main =
                 return firstName, lastName, addresses, birthDate, name, values
             }
 
+        let last v =
+            formlet {
+                do! Static.Text "We are all done\nClick submit" 6
+                return v
+            }
+            |> Enhance.WithErrorSummary true
+            |> EnhancePage.WithSubmitButtons
+
         let window      = Window ()
         let submit v    = printfn "Submit: %A" v
         let cancel ()   = printfn "Cancelled"
 //        window.Content <- FormletControl.Create submit cancel complete
-        window.Content <- FlowletControl.Create submit cancel flow
+        window.Content <- FlowletControl.Create submit cancel flow last
 
         ignore <| window.ShowDialog ()
 

@@ -23,8 +23,20 @@ open FSharp.Client.Formlet.Core
 
 open InternalElements
 
-module Input =
+module Static = 
 
+    let Text text minLines : Formlet<unit> =
+        let eval (fc,cl,ft : FormletTree) =
+            let e =
+                match ft with
+                | Element (:? StaticTextElement as e) -> e
+                | _ ->
+                    StaticTextElement(text, minLines)
+            (FormletResult.Success ()), Element (e :> UIElement)
+
+        FormletMonad.New eval
+
+module Input =
     let Text initialText : Formlet<string> =
         let eval (fc,cl,ft : FormletTree) =
             let e =
@@ -205,7 +217,7 @@ module Enhance =
                 | Adorner ((:? SubmitButtonsElement as sbe), list, ft) ->
                     sbe, list, ft
                 | _ ->
-                    let sbe = SubmitButtonsElement ()
+                    let sbe = SubmitButtonsElement (true)
                     let list= sbe.ChildCollection
                     sbe, list, Empty
 
@@ -215,19 +227,38 @@ module Enhance =
 
         FormletMonad.New eval
 
-    let WithFlowButtons (f : Formlet<'T>) (pageNo : int) : Formlet<'T> =
+module EnhancePage =
+
+    let WithNavigationButtons (f : Formlet<'T>) (pageNo : int) : Formlet<'T> =
         let eval (fc,cl,ft : FormletTree) =
-            let fbe, list, ift =
+            let nbe, list, ift =
                 match ft with
-                | Adorner ((:? FlowButtonsElement as sbe), list, ft) ->
-                    sbe, list, ft
+                | Adorner ((:? NavigationButtonsElement as nbe), list, ft) ->
+                    nbe, list, ft
                 | _ ->
-                    let fbe = FlowButtonsElement ()
-                    let list= fbe.ChildCollection
-                    fbe, list, Empty
+                    let nbe = NavigationButtonsElement ()
+                    let list= nbe.ChildCollection
+                    nbe, list, Empty
 
             let c,nift = f.Evaluate (fc, cl, ift)
-            fbe.State <- c.Failures,true,pageNo
-            c, Adorner (fbe :> UIElement, list, nift)
+            nbe.State <- c.Failures,pageNo
+            c, Adorner (nbe :> UIElement, list, nift)
+
+        FormletMonad.New eval
+
+    let WithSubmitButtons (f : Formlet<'T>) (pageNo : int) : Formlet<'T> =
+        let eval (fc,cl,ft : FormletTree) =
+            let sbe, list, ift =
+                match ft with
+                | Adorner ((:? SubmitButtonsElement as sbe), list, ft) ->
+                    sbe, list, ft
+                | _ ->
+                    let sbe = SubmitButtonsElement (false)
+                    let list= sbe.ChildCollection
+                    sbe, list, Empty
+
+            let c,nift = f.Evaluate (fc, cl, ift)
+            sbe.Failures <- c.Failures
+            c, Adorner (sbe :> UIElement, list, nift)
 
         FormletMonad.New eval
