@@ -23,7 +23,7 @@ open FSharp.Client.Formlet.Core
 
 open InternalElements
 
-module Static = 
+module Static =
 
     let Text text minLines : Formlet<unit> =
         let eval (fc,cl,ft : FormletTree) =

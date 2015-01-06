@@ -62,7 +62,7 @@ module Main =
         |> Formlet.Validate_Option false "Checkbox must be ticked or unticked"
         |> Enhance.WithErrorVisual
 
-    module RegistrationFlow = 
+    module RegistrationFlow =
         type AddressInfo =
             {
                 FirstName       : string
@@ -76,12 +76,12 @@ module Main =
                 Country         : string
             }
 
-        type GenderInfo = 
+        type GenderInfo =
             | Unspecified
             | Male
             | Female
-    
-        type PersonInfo = 
+
+        type PersonInfo =
             {
                 Id              : string
                 FirstName       : string
@@ -92,7 +92,7 @@ module Main =
                 Email           : string
             }
 
-        type CompanyInfo = 
+        type CompanyInfo =
             {
                 Id              : string
                 VatId           : string
@@ -100,11 +100,11 @@ module Main =
                 Contact         : PersonInfo
             }
 
-        type EntityInfo = 
+        type EntityInfo =
             | Person    of PersonInfo
             | Company   of CompanyInfo
 
-        type PaymentInfo = 
+        type PaymentInfo =
             | CreditCard    of string*string*DateTime*string
             | Invoice       of AddressInfo option
 
@@ -116,8 +116,8 @@ module Main =
                 Payment         : PaymentInfo
             }
 
-        let showPage (f : Formlet<'T>) = 
-            f 
+        let showPage (f : Formlet<'T>) =
+            f
             |> Enhance.WithErrorSummary true
             |> EnhancePage.WithNavigationButtons
             |> Flowlet.Show
@@ -131,15 +131,15 @@ module Main =
                 let! birthDate  = LabeledBirthDate  "Birth date"    None
                 let! cellPhone  = LabeledText       "Cell"          ""
                 let! email      = LabeledText       "Email"         ""
-                return 
+                return
                     {
-                        Id          = id       
+                        Id          = id
                         FirstName   = firstName
-                        LastName    = lastName 
-                        Gender      = gender   
+                        LastName    = lastName
+                        Gender      = gender
                         BirthDate   = birthDate
                         CellPhone   = cellPhone
-                        Email       = email    
+                        Email       = email
                     }
             }
             |> Enhance.WithLegend legend
@@ -164,17 +164,17 @@ module Main =
                 let! zip              = LabeledText     "Zip"             ""
                 let! city             = LabeledText     "City"            ""
                 let! country          = LabeledText     "Country"         ""
-                return 
+                return
                     {
-                        FirstName       = firstName   
-                        LastName        = lastName    
-                        CareOf          = careOf      
+                        FirstName       = firstName
+                        LastName        = lastName
+                        CareOf          = careOf
                         AddressLine1    = addressLine1
                         AddressLine2    = addressLine2
                         AddressLine3    = addressLine3
-                        Zip             = zip         
-                        City            = city        
-                        Country         = country     
+                        Zip             = zip
+                        City            = city
+                        Country         = country
                     }
             }
             |> Enhance.WithLegend legend
@@ -189,7 +189,7 @@ module Main =
             }
 
         let invoiceForm legend firstName lastName =
-            let f useDeliveryAddress = 
+            let f useDeliveryAddress =
                 formlet {
                     if not useDeliveryAddress then
                         let! address = addressForm "Invoice address" firstName lastName
@@ -202,17 +202,17 @@ module Main =
                 return! f useDeliveryAddress
             }
 
-        let personFlow firstName lastName = 
+        let personFlow firstName lastName =
             flowlet {
                let! person = showPage <| personForm "Personal information" firstName lastName
                return Person person
             }
 
-        let companyFlow firstName lastName = 
+        let companyFlow firstName lastName =
             flowlet {
                 let! id, vatId, name= showPage <| companyForm  "Company information"
                 let! contact        = showPage <| personForm   "Contact information" firstName lastName
-                let company = 
+                let company =
                     {
                         Id      = id
                         VatId   = vatId
@@ -222,19 +222,19 @@ module Main =
                return Company company
             }
 
-        let creditCardFlow firstName lastName = 
+        let creditCardFlow firstName lastName =
             flowlet {
-               let! creditCard = showPage <| creditCardForm "Credit card information" firstName lastName 
+               let! creditCard = showPage <| creditCardForm "Credit card information" firstName lastName
                return creditCard
             }
 
-        let invoiceFlow firstName lastName = 
+        let invoiceFlow firstName lastName =
             flowlet {
-               let! invoice = showPage <| invoiceForm "Invoice information" firstName lastName 
+               let! invoice = showPage <| invoiceForm "Invoice information" firstName lastName
                return Invoice invoice
             }
 
-        let selectForm = 
+        let selectForm =
             formlet {
                 let! entityFlow     = LabeledOption "Entity"    personFlow      [|"Person",personFlow; "Company",companyFlow|]
                 let! paymentFlow    = LabeledOption "Payment"   creditCardFlow  [|"Credit card",creditCardFlow; "Invoice",invoiceFlow|]

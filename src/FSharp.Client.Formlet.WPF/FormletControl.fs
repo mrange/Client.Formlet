@@ -202,13 +202,13 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
 module FormletControl =
 
     let Create  (submit  : 'TValue -> unit)
-                (cancel  : unit -> unit) 
+                (cancel  : unit -> unit)
                 (formlet : Formlet<'TValue>) =
         let scrollViewer = ScrollViewer ()
         FormletControl<_> (scrollViewer, true, submit, cancel, formlet)
 
     let CreateNonInteractive    (submit  : 'TValue -> unit)
-                                (cancel  : unit -> unit)     
+                                (cancel  : unit -> unit)
                                 (formlet : Formlet<'TValue>) =
         let scrollViewer = ScrollViewer ()
         FormletControl<_> (scrollViewer, false, submit, cancel, formlet)

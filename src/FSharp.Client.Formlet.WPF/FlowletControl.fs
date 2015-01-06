@@ -67,15 +67,15 @@ type FlowletControl<'TValue> (      border  : Border
     member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = this.SubmitFlowlet ()
     member this.OnReset     (sender : obj) (e : RoutedEventArgs) = this.ResetPage ()
 
-    member this.CancelFlowlet () = 
+    member this.CancelFlowlet () =
         cancel ()
 
-    member this.SubmitFlowlet () = 
+    member this.SubmitFlowlet () =
         if pages.Count > 0 then
             let fc = pages.Peek ()
             fc.SubmitForm ()
 
-    member this.ResetPage () = 
+    member this.ResetPage () =
         if pages.Count > 0 then
             let fc = pages.Peek ()
             fc.ResetForm ()
