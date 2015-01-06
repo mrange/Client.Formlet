@@ -115,7 +115,6 @@ module internal Functions =
 
     let DefaultBackgroundBrush      = Brushes.White     :> Brush
     let DefaultForegroundBrush      = Brushes.Black     :> Brush
-    let DefaultBorderBrush          = Brushes.SkyBlue   :> Brush
     let DefaultErrorBrush           = Brushes.Red       :> Brush
 
     let DefaultMargin               = Thickness (4.0)
@@ -124,9 +123,10 @@ module internal Functions =
 
     let DefaultListBoxItemPadding   = Thickness (24.0,0.0,0.0,0.0)
 
-    let DefaultBorderMargin         = Thickness (0.0,8.0,0.0,0.0)
-    let DefaultBorderPadding        = Thickness (0.0,16.0,4.0,8.0)
-    let DefaultBorderThickness      = Thickness (2.0)
+    let LegendBorderBrush           = Brushes.SkyBlue   :> Brush
+    let LegendBorderMargin          = Thickness (0.0,8.0,0.0,0.0)
+    let LegendBorderPadding         = Thickness (0.0,16.0,4.0,8.0)
+    let LegendBorderThickness       = Thickness (2.0)
 
     let DefaultFontFamily           = FontFamily "Segoe UI"
     let SymbolFontFamily            = FontFamily "Segoe UI Symbol"
@@ -207,6 +207,15 @@ module internal Functions =
         br.Freeze ()
         br
 
+    let AddPanelChild ch (panel : Panel) =
+        ignore <| panel.Children.Add ch
+        panel
+
+    let AddDockChild ch (dock : Dock) (dockPanel : DockPanel) =
+        DockPanel.SetDock (ch, dock)
+        ignore <| dockPanel.Children.Add ch
+        dockPanel
+
     let AddGridColumn w (grid : Grid) =
         let gridColumn = ColumnDefinition ()
         gridColumn.Width <- w
@@ -237,13 +246,9 @@ module internal Functions =
     let AddGridRow_Pixel w g =
         AddGridRow (GridLength (w, GridUnitType.Pixel)) g
 
-    let AddPanelChild ch (panel : Panel) =
-        ignore <| panel.Children.Add ch
-        panel
-
     let AddGridChild ch c r (grid : Grid) =
-        ignore <| Grid.SetColumn    (ch, c)
-        ignore <| Grid.SetRow       (ch, r)
+        Grid.SetColumn  (ch, c)
+        Grid.SetRow     (ch, r)
         ignore <| grid.Children.Add ch
         grid
 
@@ -355,6 +360,26 @@ module internal Functions =
 
             member this.add_CanExecuteChanged(handler)      = CommandManager.RequerySuggested.AddHandler(handler)
             member this.remove_CanExecuteChanged(handler)   = CommandManager.RequerySuggested.RemoveHandler(handler)
+
+    let CreateBorder margin padding borderThickness borderBrush =
+        let border = Border()
+        border.Margin           <- margin
+        border.Padding          <- padding
+        border.BorderThickness  <- borderThickness
+        border.BorderBrush      <- borderBrush
+        border
+
+    let CreateLegendBorder () =
+        CreateBorder LegendBorderMargin LegendBorderPadding LegendBorderThickness LegendBorderBrush
+
+    let CreateGrid () =
+        let grid = Grid()
+        grid
+
+    let CreateDockPanel lastChildFill =
+        let dockPanel = DockPanel()
+        dockPanel.LastChildFill <- lastChildFill
+        dockPanel
 
     let CreateStackPanel orientation =
         let stackPanel = StackPanel()

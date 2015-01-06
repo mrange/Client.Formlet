@@ -339,7 +339,7 @@ module internal InternalElements =
     type FormletListBoxItem () as this =
         inherit ListBoxItem ()
 
-        static let pen      = CreatePen DefaultBorderBrush 1.0
+        static let pen      = CreatePen LegendBorderBrush 1.0
         static let typeFace = DefaultTypeFace
 
         static let transform =
@@ -376,7 +376,7 @@ module internal InternalElements =
 
             let rect = Rect (0.0, 0.0, this.Padding.Left, rs.Height)
 
-            drawingContext.DrawRectangle (DefaultBorderBrush, null, rect)
+            drawingContext.DrawRectangle (LegendBorderBrush, null, rect)
 
             let p0 = Point (0.0, rs.Height)
             let p1 = Point (rs.Width, rs.Height)
@@ -472,8 +472,10 @@ module internal InternalElements =
         // TODO: Localization
         let newButton       = CreateButton "_New" "Click to create another item" listBox.CanAddNew listBox.AddNew
         let deleteButton    = CreateButton "_Delete" "Click to delete the currently selected items" listBox.CanDeleteSelection listBox.DeleteSelection
-        ignore <| buttons.Children.Add newButton
-        ignore <| buttons.Children.Add deleteButton
+        buttons
+            |> AddPanelChild newButton
+            |> AddPanelChild deleteButton
+            |> ignore
         listBox, upcast listBox.Adorners, upcast buttons
 
     type ManyElement(initialCount : int, value : StackPanel) =
@@ -482,8 +484,10 @@ module internal InternalElements =
         let listBox, adorners, buttons = CreateManyElements initialCount
 
         do
-            ignore <| value.Children.Add buttons
-            ignore <| value.Children.Add listBox
+            value
+                |> AddPanelChild buttons
+                |> AddPanelChild listBox
+                |> ignore
 
         new (initialCount : int) =
             ManyElement (initialCount, CreateStackPanel Orientation.Vertical)
@@ -499,14 +503,12 @@ module internal InternalElements =
         label.Background        <- DefaultBackgroundBrush
         label.RenderTransform   <- TranslateTransform (8.0, -6.0)
         label.FontSize          <- 16.0
-        let border              = Border ()
-        let outer               = Grid ()
-        border.Margin           <- DefaultBorderMargin
-        border.Padding          <- DefaultBorderPadding
-        border.BorderThickness  <- DefaultBorderThickness
-        border.BorderBrush      <- DefaultBorderBrush
-        ignore <| outer.Children.Add(border)
-        ignore <| outer.Children.Add(label)
+        let border              = CreateLegendBorder ()
+        let outer               = CreateGrid ()
+        outer
+            |> AddGridChild border  0   0
+            |> AddGridChild label   0   0
+            |> ignore
         upcast outer, label, upcast border
 
     type LegendElement(outer : UIElement, label : TextBox, inner : Decorator) =
@@ -527,7 +529,7 @@ module internal InternalElements =
 
         member this.ChildCollection = container :> IList<UIElement>
 
-    type ErrorSummaryElement(sp : StackPanel) as this =
+    type ErrorSummaryElement(sp : StackPanel, summaryOnTop : bool) =
         inherit DecoratorElement(sp)
 
         static let okBackgroundBrush    = CreateSimpleGradient (CreateColor "#0B0") (CreateColor "#070") :> Brush
@@ -543,12 +545,8 @@ module internal InternalElements =
         let largeSize   = 24.0
 
         let container   = LayoutElement ()
-        let border      = Border ()
-        let grid        = Grid ()
-        let stackPanel  = CreateStackPanel Orientation.Vertical
-
-        let submitButton= CreateButton "_Submit" "Click to submit form" this.CanSubmit this.Submit
-        let resetButton = CreateButton "_Reset" "Click to reset form"   this.CanReset this.Reset
+        let border      = CreateBorder DefaultMargin DefaultMargin (Thickness 2.) okBorderBrush
+        let grid        = CreateGrid ()
 
         let errorSymbol = SymbolElement ([|
                                             ("\u26CA", symbolSize       , errorSymbolBackgroundBrush, SymbolTypeFace    )
@@ -565,48 +563,45 @@ module internal InternalElements =
         let mutable failures = []
 
         do
-            stackPanel.Margin       <- Thickness (0.0, 9.0, 0.0, 0.0)
             label.Foreground        <- DefaultBackgroundBrush
             label.FontFamily        <- DefaultFontFamily
 
-            ignore <| stackPanel.Children.Add submitButton
-            ignore <| stackPanel.Children.Add resetButton
-
             grid
-            |>  AddGridColumn_Star          1.0
-            |>  AddGridColumn_Pixel         4.0
-            |>  AddGridColumn_Auto
-            |>  AddGridColumn_Pixel         4.0
-            |>  AddGridColumn_Auto
-            |>  AddGridColumn_Pixel         8.0
-            |>  AddGridChild label          0   0
-            |>  AddGridChild okSymbol       4   0
-            |>  AddGridChild errorSymbol    4   0
-            |>  AddGridChild stackPanel     2   0
-            |>  ignore
+                |>  AddGridColumn_Star          1.0
+                |>  AddGridColumn_Pixel         4.0
+                |>  AddGridColumn_Pixel         4.0
+                |>  AddGridColumn_Auto
+                |>  AddGridColumn_Pixel         8.0
+                |>  AddGridChild label          0   0
+                |>  AddGridChild okSymbol       3   0
+                |>  AddGridChild errorSymbol    3   0
+                |>  ignore
 
 
             border.Background       <- okBackgroundBrush
-            border.BorderBrush      <- okBorderBrush
-            border.BorderThickness  <- Thickness 2.0
-            border.Margin           <- DefaultMargin
             border.CornerRadius     <- CornerRadius 8.0
-            border.Padding          <- DefaultMargin
             border.Child            <- grid
 
-            ignore <| sp.Children.Add border
-            ignore <| sp.Children.Add container
+            if summaryOnTop then
+                sp
+                    |> AddPanelChild border
+                    |> AddPanelChild container
+                    |> ignore
+            else
+                sp
+                    |> AddPanelChild container
+                    |> AddPanelChild border
+                    |> ignore
 
-        new () =
+        new (summaryOnTop : bool) =
             let sp = CreateStackPanel Orientation.Vertical
-            ErrorSummaryElement sp
+            ErrorSummaryElement (sp, summaryOnTop)
 
 
         member this.Failures
             with get ()                             = failures
             and  set (value : FormletFailure list)  =
                 failures <- value |> List.rev   // TODO: Distinct?
-                CommandManager.InvalidateRequerySuggested()
                 label.Inlines.Clear ()
                 let inlines =
                     if not failures.IsEmpty then
@@ -627,9 +622,9 @@ module internal InternalElements =
                                 ])
                         let full =
                             [
-                                Run ("You can't submit because")    |?> (fun r -> r.FontSize <- largeSize)
-                                                                        :> Inline
-                                LineBreak()                         :> Inline
+                                Run ("Can't continue because")  |?> (fun r -> r.FontSize <- largeSize)
+                                                                :> Inline
+                                LineBreak()                     :> Inline
                             ]
                             @ inlines
                         full |>  List.toArray
@@ -640,7 +635,7 @@ module internal InternalElements =
                         border.BorderBrush      <- okBorderBrush
                         [|
                                 Run ("Ready to submit")     |?> (fun r -> r.FontSize <- largeSize)
-                                                                :> Inline
+                                                            :> Inline
                                 LineBreak()                 :> Inline
                         |]
                 label.Inlines.AddRange (inlines)
@@ -649,10 +644,106 @@ module internal InternalElements =
                 else
                     label.Visibility <- Visibility.Visible
 
-        member this.Submit ()   = FormletElement.RaiseSubmit this
-        member this.CanSubmit ()= this.Failures.IsEmpty
+        member this.ChildCollection = container.ChildCollection
 
-        member this.Reset ()    = FormletElement.RaiseReset this
+    type SubmitButtonsElement(sp : StackPanel) as this =
+        inherit DecoratorElement(sp)
+
+        let cancelButton= CreateButton "_Cancel" "Click to cancel form" this.CanCancel  this.Cancel
+        let submitButton= CreateButton "_Submit" "Click to submit form" this.CanSubmit  this.Submit
+        let resetButton = CreateButton "_Reset" "Click to reset form"   this.CanReset   this.Reset
+
+        let container   = LayoutElement ()
+        let buttons     = CreateDockPanel false
+
+        let mutable failures : FormletFailure list = []
+
+        do
+            buttons
+                |> AddDockChild submitButton    Dock.Right
+                |> AddDockChild resetButton     Dock.Right
+                |> AddDockChild cancelButton    Dock.Left
+                |> ignore
+
+            sp
+                |> AddPanelChild container
+                |> AddPanelChild buttons
+                |> ignore
+
+        new () =
+            let sp = CreateStackPanel Orientation.Vertical
+            SubmitButtonsElement sp
+
+        member this.Failures
+            with get () = failures
+            and  set fs =
+                failures <- fs
+                CommandManager.InvalidateRequerySuggested()
+
+        member this.CanCancel ()= true
+        member this.Cancel ()   = FormletElement.RaiseCancel this
+
+        member this.CanSubmit ()= this.Failures.IsEmpty
+        member this.Submit ()   = FormletElement.RaiseSubmit this
+
         member this.CanReset () = true
+        member this.Reset ()    = FormletElement.RaiseReset this
+
+        member this.ChildCollection = container.ChildCollection
+
+    type FlowButtonsElement(sp : StackPanel) as this =
+        inherit DecoratorElement(sp)
+
+        let cancelButton    = CreateButton "_Cancel"    "Click to cancel guide"         this.CanCancel      this.Cancel
+        let submitButton    = CreateButton "_Submit"    "Click to submit guide"         this.CanSubmit      this.Submit
+        let resetButton     = CreateButton "_Reset"     "Click to reset page"           this.CanReset       this.Reset
+        let nextButton      = CreateButton "_Next"      "Click to goto next page"       this.CanNext        this.Next
+        let previousButton  = CreateButton "_Previous"  "Click to goto previous page"   this.CanPrevious    this.Previous
+
+        let container   = LayoutElement ()
+        let buttons     = CreateDockPanel false
+
+        let mutable failures    : FormletFailure list = []
+        let mutable hasPrevious = false
+
+        do
+            buttons
+                |> AddDockChild submitButton    Dock.Right
+                |> AddDockChild resetButton     Dock.Right
+                |> AddDockChild nextButton      Dock.Right
+                |> AddDockChild previousButton  Dock.Right
+                |> AddDockChild cancelButton    Dock.Left
+                |> ignore
+
+            sp
+                |> AddPanelChild container
+                |> AddPanelChild buttons
+                |> ignore
+
+        new () =
+            let sp = CreateStackPanel Orientation.Vertical
+            FlowButtonsElement sp
+
+        member this.State
+            with get ()         = failures, hasPrevious
+            and  set (fs, hp)   =
+                failures    <- fs
+                hasPrevious <- hp
+                CommandManager.InvalidateRequerySuggested()
+
+        member this.CanCancel ()    = true
+        member this.Cancel ()       = FormletElement.RaiseCancel this
+
+        member this.CanSubmit ()    = false
+        member this.Submit ()       = FormletElement.RaiseSubmit this
+
+        member this.CanReset ()     = true
+        member this.Reset ()        = FormletElement.RaiseReset this
+
+        member this.CanNext ()      = failures.IsEmpty
+        member this.Next ()         = FormletElement.RaiseNext this
+
+        member this.CanPrevious ()  = hasPrevious
+        member this.Previous ()     = FormletElement.RaisePrevious this
 
         member this.ChildCollection = container.ChildCollection

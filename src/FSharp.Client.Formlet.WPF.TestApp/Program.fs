@@ -175,7 +175,7 @@ module Main =
                 return deliveryAddress, invoiceAddress
             }
 
-        let complete = full |> Enhance.WithErrorSummary
+        let complete = full |> Enhance.WithErrorSummary true |> Enhance.WithFlowButtons
 
         let sampleFlow =
             let get result =
@@ -195,16 +195,16 @@ module Main =
 
         let flow =
             flowlet {
-                let! firstName, lastName, birthDate = Flowlet.Show person
-                let! addresses                      = Flowlet.Show addresses
-                let! name, values                   = Flowlet.Show companyInfo
+                let! firstName, lastName, birthDate = Page.Show person
+                let! addresses                      = Page.Show addresses
+                let! name, values                   = Page.Show companyInfo
                 return firstName, lastName, addresses, birthDate, name, values
             }
 
         let window  = Window ()
         let submit v= printfn "Submit: %A" v
 //        window.Content <- FormletControl.Create submit complete
-        window.Content <- FlowletControl.Create submit Enhance.WithErrorSummary flow
+        window.Content <- FlowletControl.Create submit flow
 
         ignore <| window.ShowDialog ()
 

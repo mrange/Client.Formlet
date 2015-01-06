@@ -51,8 +51,8 @@
     <Compile Include="Elements.fs" />
     <Compile Include="InternalElements.fs" />
     <Compile Include="FormletControl.fs" />
-    <Compile Include="Core.fs" />
     <Compile Include="FlowletControl.fs" />
+    <Compile Include="Core.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSharp.Client.Formlet.Core\FSharp.Client.Formlet.Core.fsproj">

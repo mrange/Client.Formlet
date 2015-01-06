@@ -20,7 +20,7 @@ namespace FSharp.Client.Formlet.Core
 /// IFormletContext allows adaptations to provide Flowlet-wide Context
 ///  Show displays a formlet
 type IFlowletContext<'FormletContext, 'Element when 'FormletContext : not struct and 'FormletContext :> IFormletContext and 'Element : not struct> =
-    abstract Show   : ('T -> unit)*Formlet<'FormletContext, 'Element, 'T> -> unit
+    abstract Show       : ('T -> unit)*Formlet<'FormletContext, 'Element, 'T> -> unit
 
 type FlowletCompletion =
     | Cancelled
