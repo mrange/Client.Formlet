@@ -26,9 +26,10 @@ open Elements
 open InternalElements
 
 type FormletDispatchAction =
-    | Rebuild   = 1
-    | Submit    = 2
-    | Reset     = 3
+    | Cancel    = 1
+    | Rebuild   = 2
+    | Submit    = 3
+    | Reset     = 4
 
 [<AbstractClass>]
 type BaseFormletControl (uiElement : UIElement) =
@@ -37,9 +38,11 @@ type BaseFormletControl (uiElement : UIElement) =
     abstract RebuildForm: unit -> unit
     abstract ResetForm  : unit -> unit
     abstract SubmitForm : unit -> unit
+    abstract CancelForm : unit -> unit
 
 type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
                                 ,   submit          : 'TValue -> unit
+                                ,   cancel          : unit -> unit
                                 ,   formlet         : Formlet<'TValue>
                                 ) as this =
     inherit BaseFormletControl (scrollViewer)
@@ -60,6 +63,7 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
     do
         AddRoutedEventHandler FormletElement.SubmitEvent   this this.OnSubmit
         AddRoutedEventHandler FormletElement.ResetEvent    this this.OnReset
+        AddRoutedEventHandler FormletElement.CancelEvent   this this.OnCancel
 
         scrollViewer.HorizontalScrollBarVisibility  <- ScrollBarVisibility.Disabled
         scrollViewer.VerticalScrollBarVisibility    <- ScrollBarVisibility.Visible
@@ -147,9 +151,11 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
 
     let cacheInvalidator () = this.AsyncRebuildForm ()
 
+    member this.OnCancel    (sender : obj) (e : RoutedEventArgs) = this.AsyncCancelForm ()
     member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = this.AsyncSubmitForm ()
     member this.OnReset     (sender : obj) (e : RoutedEventArgs) = this.AsyncResetForm ()
 
+    member this.AsyncCancelForm () = queue.Dispatch (FormletDispatchAction.Cancel   , this.CancelForm)
     member this.AsyncSubmitForm () = queue.Dispatch (FormletDispatchAction.Submit   , this.SubmitForm)
     member this.AsyncResetForm ()  = queue.Dispatch (FormletDispatchAction.Reset    , this.ResetForm)
     member this.AsyncRebuildForm ()= queue.Dispatch (FormletDispatchAction.Rebuild  , this.RebuildForm)
@@ -184,6 +190,9 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
 
         ()
 
+    override this.CancelForm () =
+        cancel ()
+
     override this.ResetForm () =
         formTree <- Empty
         this.RebuildForm ()
@@ -196,8 +205,9 @@ type FormletControl<'TValue> (      scrollViewer    : ScrollViewer
 
 module FormletControl =
 
-    let Create (submit  : 'TValue -> unit)
-               (formlet : Formlet<'TValue>) =
+    let Create  (submit  : 'TValue -> unit)
+                (cancel  : unit -> unit) 
+                (formlet : Formlet<'TValue>) =
         let scrollViewer = ScrollViewer ()
-        FormletControl<_> (scrollViewer, submit, formlet)
+        FormletControl<_> (scrollViewer, submit, cancel, formlet)
 

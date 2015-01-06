@@ -31,6 +31,7 @@ type BaseFlowletControl (uiElement : UIElement) =
 
 type FlowletControl<'TValue> (      border  : Border
                                 ,   submit  : 'TValue -> unit
+                                ,   cancel  : unit -> unit
                                 ,   flowlet : Flowlet<'TValue>
                                 ) as this =
     inherit BaseFlowletControl (border)
@@ -43,7 +44,7 @@ type FlowletControl<'TValue> (      border  : Border
         {
             new FlowletContext with
                 member x.Show (cont,f) =
-                    let fc  = FormletControl.Create cont f :> BaseFormletControl
+                    let fc  = FormletControl.Create cont cancel f :> BaseFormletControl
                     pages.Push fc
                     border.Child <- fc
         }
@@ -67,11 +68,12 @@ type FlowletControl<'TValue> (      border  : Border
             fc.SubmitForm ()
 
     member this.RunFlowlet () =
-        flowlet.Continuation (context, submit, fun fc -> ())
+        flowlet.Continuation (context, submit)
 
 module FlowletControl =
-    let Create (submit  : 'TValue -> unit)
-               (flowlet : Flowlet<'TValue>) =
+    let Create  (submit  : 'TValue -> unit)
+                (cancel  : unit -> unit)
+                (flowlet : Flowlet<'TValue>) =
 
         let border = Border ()
-        FlowletControl (border, submit, flowlet)
+        FlowletControl (border, submit, cancel, flowlet)

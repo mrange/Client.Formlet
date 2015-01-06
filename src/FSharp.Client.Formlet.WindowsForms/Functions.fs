@@ -48,9 +48,9 @@ module Functions =
 
     type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (control : Control) =
         let mutable isDispatching   = false
-        let queue                   = Queue<'DispatchEnum*(unit->unit)> ()
+        let queue                   = Queue<'DispatchEnum*(unit -> unit)> ()
 
-        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit->unit) =
+        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit -> unit) =
             let isAlreadyDispatching = queue |> Seq.exists (fun (de,_) -> de = dispatchEnum)
             if not isAlreadyDispatching then
                 queue.Enqueue(dispatchEnum, action)

@@ -201,10 +201,11 @@ module Main =
                 return firstName, lastName, addresses, birthDate, name, values
             }
 
-        let window  = Window ()
-        let submit v= printfn "Submit: %A" v
+        let window      = Window ()
+        let submit v    = printfn "Submit: %A" v
+        let cancel ()   = printfn "Cancelled"
 //        window.Content <- FormletControl.Create submit complete
-        window.Content <- FlowletControl.Create submit flow
+        window.Content <- FlowletControl.Create submit cancel flow
 
         ignore <| window.ShowDialog ()
 

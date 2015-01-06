@@ -29,7 +29,7 @@ module Input =
         let eval (fc,cl,ft : FormletTree) =
             let e =
                 match ft with
-                | Element (:? InputTextElement as e)-> e
+                | Element (:? InputTextElement as e) -> e
                 | _ ->
                     InputTextElement(initialText)
             e.ChangeNotifier <- cl
@@ -55,7 +55,7 @@ module Input =
         let eval (fc,cl,ft : FormletTree) =
             let e =
                 match ft with
-                | Element (:? InputDateTimeElement as e)-> e
+                | Element (:? InputDateTimeElement as e) -> e
                 | _ ->
                     InputDateTimeElement(initialDateTime)
             e.ChangeNotifier <- cl
@@ -74,7 +74,7 @@ module Input =
         let eval (fc,cl,ft : FormletTree) =
             let e =
                 match ft with
-                | Element (:? InputOptionElement<'T> as e)-> e
+                | Element (:? InputOptionElement<'T> as e) -> e
                 | _ ->
                     InputOptionElement<'T> (initial, options)
             e.ChangeNotifier <- cl
@@ -93,7 +93,7 @@ module Input =
         let eval (fc,cl,ft : FormletTree) =
             let e =
                 match ft with
-                | Element (:? InputTriStateElement as e)-> e
+                | Element (:? InputTriStateElement as e) -> e
                 | _ ->
                     InputTriStateElement(initial)
             e.Content       <- label
@@ -108,7 +108,7 @@ module Enhance =
         let eval (fc,cl,ft : FormletTree) =
             let me, adorners =
                 match ft with
-                | Many ((:? ManyElement as me), adorners)   ->
+                | Many ((:? ManyElement as me), adorners) ->
                     me, adorners
                 | _ ->
                     let me      = ManyElement (initialCount)

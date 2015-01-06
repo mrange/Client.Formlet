@@ -29,8 +29,8 @@ module Input =
         let eval (fc,cl,ft : FormletTree<Control>) =
             let e =
                 match ft with
-                | Element (:? InputTextControl as e)-> e
-                | _                                 ->
+                | Element (:? InputTextControl as e) -> e
+                | _ ->
                     new InputTextControl(initialText)
             e.ChangeNotifier <- cl
             (FormletResult.Success e.Text), Element (e :> Control)

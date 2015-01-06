@@ -311,20 +311,20 @@ module internal Functions =
         else
             null
 
-    let UpdateLoadedAdorner (updater : FrameworkElement*AdornerLayer*#Adorner->unit, fe : FrameworkElement) =
+    let UpdateLoadedAdorner (updater : FrameworkElement*AdornerLayer*#Adorner -> unit, fe : FrameworkElement) =
         let layer   = AdornerLayer.GetAdornerLayer fe
         if layer <> null then
             let adorner = FindAdorner layer fe
             updater (fe, layer, adorner)
 
-    type DelayedAdornerUpdater<'Adorner when 'Adorner :> Adorner and 'Adorner : null>(updater : FrameworkElement*AdornerLayer*'Adorner->unit, fe : FrameworkElement) as this =
+    type DelayedAdornerUpdater<'Adorner when 'Adorner :> Adorner and 'Adorner : null>(updater : FrameworkElement*AdornerLayer*'Adorner -> unit, fe : FrameworkElement) as this =
         let onLoaded sender args =
             fe.Loaded.RemoveHandler this.OnLoaded
             UpdateLoadedAdorner (updater, fe)
 
         member this.OnLoaded = RoutedEventHandler onLoaded
 
-    let UpdateAdorner (updater : FrameworkElement*AdornerLayer*#Adorner->unit) (e : UIElement) : unit =
+    let UpdateAdorner (updater : FrameworkElement*AdornerLayer*#Adorner -> unit) (e : UIElement) : unit =
         match e with
         | :? FrameworkElement as fe ->
             if fe.IsLoaded then UpdateLoadedAdorner (updater, fe)
@@ -464,9 +464,9 @@ module internal Functions =
 
     type SingleDispatchQueue<'DispatchEnum when 'DispatchEnum : enum<int32> and 'DispatchEnum : equality> (dispatcher : Dispatcher) =
         let mutable isDispatching   = false
-        let queue                   = Queue<'DispatchEnum*(unit->unit)> ()
+        let queue                   = Queue<'DispatchEnum*(unit -> unit)> ()
 
-        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit->unit) =
+        member this.Dispatch (dispatchEnum : 'DispatchEnum, action : unit -> unit) =
             dispatcher.VerifyAccess ()
             let isAlreadyDispatching = queue |> Seq.exists (fun (de,_) -> de = dispatchEnum)
             if not isAlreadyDispatching then
