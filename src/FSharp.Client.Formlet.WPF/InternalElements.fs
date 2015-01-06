@@ -257,8 +257,8 @@ module internal InternalElements =
                 this.ChangeNotifier ()
 
         do
-            this.IsChecked  <- ToNullable initial
             this.Margin     <- DefaultMargin
+            Dispatch this.Dispatcher <| fun () -> this.IsChecked  <- ToNullable initial
 
         member val ChangeNotifier = EmptyChangeNotification with get, set
 
@@ -672,8 +672,8 @@ module internal InternalElements =
         do
             buttons
             |> AddDockChild                     submitButton    Dock.Right
-            |> AddDockChild_If showResetButton  resetButton     Dock.Right
             |> AddDockChild                     cancelButton    Dock.Left
+            |> AddDockChild_If showResetButton  resetButton     Dock.Left
             |> ignore
 
             sp
@@ -706,7 +706,6 @@ module internal InternalElements =
         inherit DecoratorElement(sp)
 
         let cancelButton    = CreateButton "_Cancel"    "Click to cancel guide"         this.CanCancel      this.Cancel
-        let submitButton    = CreateButton "_Submit"    "Click to submit guide"         this.CanSubmit      this.Submit
         let resetButton     = CreateButton "_Reset"     "Click to reset page"           this.CanReset       this.Reset
         let nextButton      = CreateButton "_Next"      "Click to goto next page"       this.CanNext        this.Next
         let previousButton  = CreateButton "_Previous"  "Click to goto previous page"   this.CanPrevious    this.Previous
@@ -719,11 +718,10 @@ module internal InternalElements =
 
         do
             buttons
-            |> AddDockChild submitButton    Dock.Right
-            |> AddDockChild resetButton     Dock.Right
             |> AddDockChild nextButton      Dock.Right
             |> AddDockChild previousButton  Dock.Right
             |> AddDockChild cancelButton    Dock.Left
+            |> AddDockChild resetButton     Dock.Left
             |> ignore
 
             sp
