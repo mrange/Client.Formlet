@@ -215,7 +215,7 @@ module Enhance =
 
         FormletMonad.New eval
 
-    let WithFlowButtons (f : Formlet<'T>) : Formlet<'T> =
+    let WithFlowButtons (f : Formlet<'T>) (pageNo : int) : Formlet<'T> =
         let eval (fc,cl,ft : FormletTree) =
             let fbe, list, ift =
                 match ft with
@@ -227,14 +227,7 @@ module Enhance =
                     fbe, list, Empty
 
             let c,nift = f.Evaluate (fc, cl, ift)
-            fbe.State <- c.Failures,true
+            fbe.State <- c.Failures,true,pageNo
             c, Adorner (fbe :> UIElement, list, nift)
 
         FormletMonad.New eval
-
-module Page =
-    /// Shows a Formlet as a page
-    let Show (f : Formlet<'T>) : Flowlet<'T> =
-        let cf = f |> Enhance.WithErrorSummary true |> Enhance.WithFlowButtons
-        Flowlet.Show cf
-

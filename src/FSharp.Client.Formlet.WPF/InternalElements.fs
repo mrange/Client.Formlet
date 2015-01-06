@@ -634,9 +634,9 @@ module internal InternalElements =
                         border.Background       <- okBackgroundBrush
                         border.BorderBrush      <- okBorderBrush
                         [|
-                                Run ("Ready to submit")     |?> (fun r -> r.FontSize <- largeSize)
-                                                            :> Inline
-                                LineBreak()                 :> Inline
+                                Run ("All is ok")   |?> (fun r -> r.FontSize <- largeSize)
+                                                    :> Inline
+                                LineBreak()         :> Inline
                         |]
                 label.Inlines.AddRange (inlines)
                 if label.Inlines.Count = 0 then
@@ -705,6 +705,7 @@ module internal InternalElements =
 
         let mutable failures    : FormletFailure list = []
         let mutable hasPrevious = false
+        let mutable pageNo      = 1
 
         do
             buttons
@@ -725,10 +726,11 @@ module internal InternalElements =
             FlowButtonsElement sp
 
         member this.State
-            with get ()         = failures, hasPrevious
-            and  set (fs, hp)   =
+            with get ()             = failures, hasPrevious, pageNo
+            and  set (fs, hp,pno)   =
                 failures    <- fs
                 hasPrevious <- hp
+                pageNo      <- pno
                 CommandManager.InvalidateRequerySuggested()
 
         member this.CanCancel ()    = true
@@ -743,7 +745,7 @@ module internal InternalElements =
         member this.CanNext ()      = failures.IsEmpty
         member this.Next ()         = FormletElement.RaiseNext this
 
-        member this.CanPrevious ()  = hasPrevious
+        member this.CanPrevious ()  = pageNo > 1
         member this.Previous ()     = FormletElement.RaisePrevious this
 
         member this.ChildCollection = container.ChildCollection

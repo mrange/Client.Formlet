@@ -175,16 +175,23 @@ module Main =
                 return deliveryAddress, invoiceAddress
             }
 
-        let complete = full |> Enhance.WithErrorSummary true |> Enhance.WithFlowButtons
+        let complete = full |> Enhance.WithErrorSummary true |> Enhance.WithSubmitButtons
 
+        let showPage (f : Formlet<'T>) = 
+            f 
+                |> Enhance.WithErrorSummary true
+                |> Enhance.WithFlowButtons 
+                |> Flowlet.Show
+
+(*
         let sampleFlow =
             let get result =
                 flowlet {
                     if result then
-                        let! firstName, lastName, birthDate = Flowlet.Show person
+                        let! firstName, lastName, birthDate = showPage person
                         return firstName
                     else
-                        let! name, values                   = Flowlet.Show companyInfo
+                        let! name, values                   = showPage companyInfo
                         return name
                 }
             flowlet {
@@ -192,19 +199,19 @@ module Main =
                 let! res    = get result
                 return res
             }
-
+*)
         let flow =
             flowlet {
-                let! firstName, lastName, birthDate = Page.Show person
-                let! addresses                      = Page.Show addresses
-                let! name, values                   = Page.Show companyInfo
+                let! firstName, lastName, birthDate = showPage person
+                let! addresses                      = showPage addresses
+                let! name, values                   = showPage companyInfo
                 return firstName, lastName, addresses, birthDate, name, values
             }
 
         let window      = Window ()
         let submit v    = printfn "Submit: %A" v
         let cancel ()   = printfn "Cancelled"
-//        window.Content <- FormletControl.Create submit complete
+//        window.Content <- FormletControl.Create submit cancel complete
         window.Content <- FlowletControl.Create submit cancel flow
 
         ignore <| window.ShowDialog ()

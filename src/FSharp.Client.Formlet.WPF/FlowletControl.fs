@@ -43,8 +43,8 @@ type FlowletControl<'TValue> (      border  : Border
     let context         =
         {
             new FlowletContext with
-                member x.Show (cont,f) =
-                    let fc  = FormletControl.Create cont cancel f :> BaseFormletControl
+                member x.Show (cont,pageNo,f) =
+                    let fc  = FormletControl.CreateNonInteractive cont cancel f :> BaseFormletControl
                     pages.Push fc
                     border.Child <- fc
         }
@@ -52,23 +52,48 @@ type FlowletControl<'TValue> (      border  : Border
     do
         AddRoutedEventHandler FormletElement.NextEvent      this this.OnNext
         AddRoutedEventHandler FormletElement.PreviousEvent  this this.OnPrevious
+        AddRoutedEventHandler FormletElement.SubmitEvent    this this.OnSubmit
+        AddRoutedEventHandler FormletElement.ResetEvent     this this.OnReset
+        AddRoutedEventHandler FormletElement.CancelEvent    this this.OnCancel
 
         this.Loaded.Add onLoaded
 
-    member this.OnPrevious  (sender : obj) (e : RoutedEventArgs) =
+    member this.OnPrevious  (sender : obj) (e : RoutedEventArgs) = this.PreviousPage ()
+    member this.OnNext      (sender : obj) (e : RoutedEventArgs) = this.NextPage ()
+
+    member this.OnCancel    (sender : obj) (e : RoutedEventArgs) = this.CancelFlowlet ()
+
+    member this.OnSubmit    (sender : obj) (e : RoutedEventArgs) = this.SubmitFlowlet ()
+    member this.OnReset     (sender : obj) (e : RoutedEventArgs) = this.ResetPage ()
+
+    member this.CancelFlowlet () = 
+        cancel ()
+
+    member this.SubmitFlowlet () = 
+        if pages.Count > 0 then
+            let fc = pages.Peek ()
+            fc.SubmitForm ()
+
+    member this.ResetPage () = 
+        if pages.Count > 0 then
+            let fc = pages.Peek ()
+            fc.ResetForm ()
+
+    member this.PreviousPage () =
         if pages.Count > 1 then
             ignore <| pages.Pop ()
             let fc = pages.Peek ()
             border.Child <- fc
             fc.RebuildForm ()
 
-    member this.OnNext      (sender : obj) (e : RoutedEventArgs) =
+    member this.NextPage () =
         if pages.Count > 0 then
             let fc = pages.Peek ()
             fc.SubmitForm ()
 
     member this.RunFlowlet () =
-        flowlet.Continuation (context, submit)
+        let s (v,pageNo) = submit v
+        flowlet.Continuation (context, 1, s)
 
 module FlowletControl =
     let Create  (submit  : 'TValue -> unit)
